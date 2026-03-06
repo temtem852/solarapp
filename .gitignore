@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# Streamlit
+.streamlit/
+
+# IDE
+.idea/
+# Google Service Account
+*.json
+
+
