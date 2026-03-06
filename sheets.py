@@ -56,9 +56,16 @@ def connect_spreadsheet():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
-    creds = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=scopes,
-    )
+    # Streamlit Cloud: ใช้ st.secrets
+    # Local: ใช้ไฟล์ JSON
+    if "gcp_service_account" in st.secrets:
+        creds = Credentials.from_service_account_info(
+            dict(st.secrets["gcp_service_account"]), scopes=scopes,
+        )
+    else:
+        creds = Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=scopes,
+        )
     client = gspread.authorize(creds)
     return _with_retry(client.open_by_key, SPREADSHEET_KEY, label="connect_spreadsheet")
 

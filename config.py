@@ -10,11 +10,21 @@ load_dotenv()
 # =========================================================
 # API KEYS
 # =========================================================
-SERPAPI_KEY        = os.getenv("SERPAPI_KEY")
-GEMINI_KEY         = os.getenv("GEMINI_API_KEY")
-OPENAI_KEY         = os.getenv("OPENAI_API_KEY")
-SPREADSHEET_KEY    = os.getenv("SPREADSHEET_KEY")
-SERVICE_ACCOUNT_FILE = os.getenv("SERVICE_ACCOUNT_FILE")
+def _secret(key, env_key=None):
+    """อ่านจาก st.secrets ก่อน (Streamlit Cloud) แล้ว fallback ไป os.getenv (Local)"""
+    try:
+        import streamlit as st
+        if key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        pass
+    return os.getenv(env_key or key)
+
+SERPAPI_KEY        = _secret("SERPAPI_KEY")
+GEMINI_KEY         = _secret("GEMINI_API_KEY")
+OPENAI_KEY         = _secret("OPENAI_API_KEY")
+SPREADSHEET_KEY    = _secret("SPREADSHEET_KEY")
+SERVICE_ACCOUNT_FILE = _secret("SERVICE_ACCOUNT_FILE")
 
 # =========================================================
 # LLM PROVIDER (Auto-detect)
