@@ -58,11 +58,13 @@ def connect_spreadsheet():
     ]
     # Streamlit Cloud: ใช้ st.secrets
     # Local: ใช้ไฟล์ JSON
-    if "gcp_service_account" in st.secrets:
+    try:
+        # Streamlit Cloud: อ่านจาก st.secrets
         creds = Credentials.from_service_account_info(
             dict(st.secrets["gcp_service_account"]), scopes=scopes,
         )
-    else:
+    except Exception:
+        # Local: อ่านจากไฟล์ JSON
         creds = Credentials.from_service_account_file(
             SERVICE_ACCOUNT_FILE, scopes=scopes,
         )
