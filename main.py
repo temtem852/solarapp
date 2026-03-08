@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-from serpapi import GoogleSearch
+try:
+    from serpapi import GoogleSearch          # serpapi package
+except ImportError:
+    from serpapi.google_search import GoogleSearch  # google-search-results package
 
 # ---- Local modules ----
 from config import (
@@ -194,7 +197,7 @@ if st.button(" Search & Save"):
         query,
     ])
 
-    st.success(f"บันทึกอุปกรณ์ลงแท็บ {eq_type} เรียบร้อย")
+    st.success(f"✅ บันทึกอุปกรณ์ลงแท็บ {eq_type} เรียบร้อย")
     st.rerun()
 
 
