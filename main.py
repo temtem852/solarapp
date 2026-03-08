@@ -494,6 +494,7 @@ st.header(" Export IEEE Engineering Paper")
 
 if st.button(" Generate IEEE Paper", key="ieee_export_btn"):
     pdf_bytes = build_ieee_paper(
+        # design basis
         dc_capacity=dc_capacity,
         dc_ac_ratio=dc_ac_ratio,
         H_sun=H_sun,
@@ -501,12 +502,33 @@ if st.button(" Generate IEEE Paper", key="ieee_export_btn"):
         area=area,
         E_day=E_day,
         E_est_day=E_est_day,
-        panels_per_string=panels_per_string,
-        strings_used=strings_used,
+        # string design dict
+        d=d,
+        # inverter specs
+        inv_ac=inv_ac,
+        inv_v=inv_v,
+        inv_i=inv_i,
+        inv_pv=inv_pv,
+        v_mppt_min=float(ss("v_mppt_min") or 0),
+        v_mppt_max=float(ss("v_mppt_max") or 0),
+        mppt_count=int(ss("mppt_count") or 1),
+        # module specs
+        Pm=Pm, Vmp=Vmp, Voc=Voc, Imp=Imp, Isc=Isc,
+        # financial
+        CAPEX=CAPEX,
         simple_payback=simple_payback,
+        discounted_payback=discounted_payback,
+        npv=npv,
         irr_val=irr_val,
         project_life=project_life,
-        ai_result=st.session_state.get("ai_result", "No AI result available."),
+        tariff_self=tariff_self,
+        tariff_export=tariff_export,
+        E_year_1=fin.get("E_year_1"),
+        # legacy
+        panels_per_string=panels_per_string,
+        strings_used=strings_used,
+        # AI
+        ai_result=st.session_state.get("ai_result", None),
     )
 
     st.download_button(
