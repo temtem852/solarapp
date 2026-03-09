@@ -204,237 +204,331 @@ if st.button(" Search & Save"):
 # =========================================================
 # PV SYSTEM DESIGN
 # =========================================================
-st.header(" PV System Design | การออกแบบระบบผลิตไฟฟ้าพลังงานแสงอาทิตย์")
+st.header("🔆 ออกแบบระบบผลิตไฟฟ้าพลังงานแสงอาทิตย์ (Solar Rooftop Designer)")
 
 if not st.session_state.get("run_design", False):
     st.info("⬅️ กรุณากรอกข้อมูลทาง Sidebar แล้วกด **Calculate PV System**")
     st.stop()
 
-
-# --- Design Basis ---
-st.markdown("## Design Basis | ข้อมูลตั้งต้น")
-
-E_day = ss("E_day")
-H_sun = ss("H_sun")
-PR    = ss("PR")
-area  = ss("area")
-
+# ---- รวบรวมข้อมูลตั้งต้น ----
+E_day = ss("E_day"); H_sun = ss("H_sun"); PR = ss("PR"); area = ss("area")
 if min(E_day, H_sun, PR, area) <= 0:
-    st.error("❌ ข้อมูล Load / PSH / PR / Area ต้องมากกว่า 0")
-    st.stop()
-
+    st.error("❌ ข้อมูล Load / PSH / PR / Area ต้องมากกว่า 0"); st.stop()
 for w in validate_design_inputs(E_day, H_sun, PR, area):
     st.warning(f"⚠️ {w}")
 
-st.info(
-    f"**Design Inputs Summary**\n"
-    f"- Daily energy demand: **{E_day:.1f} kWh/day**\n"
-    f"- Peak Sun Hours (PSH): **{H_sun:.2f} h/day**\n"
-    f"- Performance Ratio (PR): **{PR:.2f}**\n"
-    f"- Available area: **{area:.1f} m²**"
-)
-
-
-# --- PV Capacity Sizing ---
-st.markdown("## PV Capacity Sizing | คำนวณขนาดระบบ")
-
 P_pv_load, P_pv_area, P_pv_design, E_est_day = calc_pv_capacity(E_day, H_sun, PR, area)
 
-st.markdown(
-    f"- PV from load: **{P_pv_load:.2f} kWp**\n"
-    f"- PV from area: **{P_pv_area:.2f} kWp**\n\n"
-    f"✅ **Design PV Capacity: {P_pv_design:.2f} kWp**  \n"
-    f"Estimated Energy: **{E_est_day:.2f} kWh/day**"
-)
-
-
-# --- PV Module ---
-st.markdown("## PV Module | สเปคแผงจากผู้ใช้")
-
-Pm  = ss("Pm")
-Vmp = ss("Vmp")
-Voc = ss("Voc")
-Imp = ss("Imp")
-Isc = ss("Isc")
-
+Pm=ss("Pm"); Vmp=ss("Vmp"); Voc=ss("Voc"); Imp=ss("Imp"); Isc=ss("Isc")
 if min(Pm, Vmp, Voc, Imp, Isc) <= 0:
-    st.error("❌ สเปคแผงไม่ครบหรือมีค่าติดลบ")
-    st.stop()
-
+    st.error("❌ สเปคแผงไม่ครบหรือมีค่าติดลบ"); st.stop()
 for err in validate_module(Pm, Vmp, Voc, Imp, Isc):
-    if "ต้องมากกว่า" in err:
-        st.error(f"❌ {err}")
-        st.stop()
-    else:
-        st.warning(f"⚠️ {err} → ตรวจสอบ datasheet อีกครั้ง")
+    if "ต้องมากกว่า" in err: st.error(f"❌ {err}"); st.stop()
+    else: st.warning(f"⚠️ {err}")
 
-st.info(
-    f"**Module Electrical Summary**\n"
-    f"- Rated Power (Pm): **{Pm:.0f} W**\n"
-    f"- Vmp / Imp: **{Vmp:.1f} V / {Imp:.1f} A**\n"
-    f"- Voc / Isc: **{Voc:.1f} V / {Isc:.1f} A**"
-)
-
-
-# --- Inverter ---
-st.markdown("## Inverter | สเปคอินเวอร์เตอร์จากผู้ใช้")
-
-inv_ac = ss("inv_power_ac")
-inv_v  = ss("inv_v_dc_max")
-inv_i  = ss("inv_i_sc_max")
-inv_pv = ss("inv_pv_power_max")
-
+inv_ac=ss("inv_power_ac"); inv_v=ss("inv_v_dc_max")
+inv_i=ss("inv_i_sc_max");  inv_pv=ss("inv_pv_power_max")
 if min(inv_ac, inv_v, inv_i, inv_pv) <= 0:
-    st.error("❌ สเปค Inverter ไม่ถูกต้อง")
-    st.stop()
-
-dc_ac_actual = P_pv_design * 1000 / inv_ac
-if dc_ac_actual < 1.0:
-    st.warning("⚠️ Inverter ใหญ่เกินไป → Efficiency ต่ำ")
-elif dc_ac_actual > 1.35:
-    st.warning("⚠️ DC/AC ratio สูง → เสี่ยง clipping")
-else:
-    st.info("✅ ขนาด Inverter เหมาะสม")
-
-
-# --- String Design ---
-st.markdown("## String Design | ออกแบบจำนวนแผงต่อ String")
+    st.error("❌ สเปค Inverter ไม่ถูกต้อง"); st.stop()
 
 d = calc_string_design(
-    P_pv_design,
-    Pm, Vmp, Voc, Imp, Isc,
+    P_pv_design, Pm, Vmp, Voc, Imp, Isc,
     inv_ac, inv_v, inv_i, inv_pv,
     v_mppt_min=float(ss("v_mppt_min") or V_MPPT_MIN_DEFAULT),
     v_mppt_max=float(ss("v_mppt_max") or V_MPPT_MAX_DEFAULT),
-    mppt_count=int(ss("mppt_count") or MPPT_COUNT_DEFAULT),
+    mppt_count=int(ss("mppt_count")   or MPPT_COUNT_DEFAULT),
 )
+if d["panels_per_string"] < d["n_min_mppt"]:
+    st.error("❌ ไม่สามารถจัด String ให้อยู่ใน MPPT window"); st.stop()
 
+dc_capacity       = d["dc_capacity"]
+dc_ac_ratio       = d["dc_ac_ratio"]
+panels_per_string = d["panels_per_string"]
+strings_used      = d["strings_used"]
+Voc_str  = d.get("Voc_string", 0) or 0
+Vmp_str  = d.get("Vmp_string", 0) or 0
+I_str    = d.get("I_string",   0) or 0
+mppt_alloc = d.get("mppt_allocation", [])
+
+# แจ้งเตือน
+if d.get("auto_reduced") and d.get("I_op", 0) > inv_i * 1.02:
+    st.warning(f"⚠️ Imp = {d['I_op']:.2f} A เกิน Max Input Current/MPPT = {inv_i:.1f} A → ปรับ 1 string/MPPT อัตโนมัติ")
+elif d.get("I_op", 0) > inv_i:
+    st.info(f"ℹ️ Imp = {d['I_op']:.2f} A เกิน {inv_i:.1f} A เล็กน้อย (tolerance 2%) → ใช้งานได้")
+if d.get("isc_warning"):
+    st.warning(f"⚠️ Isc_string = {d['I_string']:.2f} A เกิน Inverter Isc limit ≈ {d['inv_i_sc']:.1f} A")
+if d["strings_used"] < d["strings_required"]:
+    st.warning("⚠️ จำนวน String ถูกจำกัดด้วยกระแส Inverter → ระบบอาจผลิตไฟได้ไม่เต็มตาม Design PV")
+if d["dc_power_installed"] > inv_pv:
+    st.warning(f"⚠️ DC Power ติดตั้ง = {d['dc_power_installed']/1000:.2f} kWp เกิน Inverter PV Max ({inv_pv/1000:.2f} kWp)")
 if d["string_clamped"]:
     st.info("ℹ️ ปรับจำนวนแผงต่อ string ให้ไม่เกินความต้องการจริง (engineering clamp)")
 
-if d["panels_per_string"] < d["n_min_mppt"]:
-    st.error("❌ ไม่สามารถจัด String ให้อยู่ใน MPPT window")
-    st.stop()
+# ตรวจสอบเงื่อนไข
+v_min_val = float(ss("v_mppt_min") or V_MPPT_MIN_DEFAULT)
+voc_ok  = bool(Voc_str and Voc_str <= inv_v)
+isc_ok  = bool(I_str   and I_str   <= inv_i * 1.25)
+vmpp_ok = bool(Vmp_str and Vmp_str >= v_min_val)
+pps_ok  = bool(panels_per_string >= d["n_min_mppt"])
+str_ok  = bool(strings_used <= d.get("strings_max", 999))
+dc_ok   = bool(d["dc_power_installed"] <= inv_pv)
 
-st.info(f"✔ แผงต่อ String: **{d['panels_per_string']} แผง**")
+def _ok(c):
+    if c:
+        return '<span style="color:#375623;font-weight:bold;font-size:13px">✅ OK</span>'
+    return '<span style="color:#C00000;font-weight:bold;font-size:13px">❌ FAIL</span>'
 
+HDR1 = "background:#1F5C8B;color:white;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px"
+HDR2 = "background:#2E75B6;color:white;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px"
+TR_Y = "background:#FFF2CC"
+TR_G = "background:#F2F2F2"
+TD   = "padding:5px 9px;border:1px solid #9DC3E6"
+TDC  = "padding:5px 9px;border:1px solid #9DC3E6;font-weight:bold;text-align:center"
+TDU  = "padding:5px 9px;border:1px solid #9DC3E6;color:#777;text-align:center;font-size:11px"
 
-# --- String Quantity ---
-st.markdown("## String Quantity | คำนวณจำนวน String")
+# =================================================================
+# ส่วนที่ 1: สเปคอุปกรณ์ (Equipment Specifications)
+# =================================================================
+st.markdown("---")
+st.markdown("### 📋 สเปคอุปกรณ์ (Equipment Specifications)")
 
-# แสดง warning เฉพาะถ้าเกิน tolerance 2%
-if d.get("auto_reduced") and d.get("I_op", 0) > inv_i * 1.02:
-    st.warning(
-        f"⚠️ Imp = {d['I_op']:.2f} A เกิน Max Input Current/MPPT = {inv_i:.1f} A\n"
-        f"→ ปรับเป็น 1 string/MPPT อัตโนมัติ ควรเลือก Inverter ที่ Max Input Current >= {d['I_op']:.1f} A"
-    )
-elif d.get("I_op", 0) > inv_i:
-    st.info(
-        f"ℹ️ Imp = {d['I_op']:.2f} A เกิน {inv_i:.1f} A เล็กน้อย (อยู่ใน tolerance 2%) → ใช้งานได้"
-    )
+v_min_d = ss("v_mppt_min") or V_MPPT_MIN_DEFAULT
+v_max_d = ss("v_mppt_max") or V_MPPT_MAX_DEFAULT
+n_mppt  = int(ss("mppt_count") or MPPT_COUNT_DEFAULT)
 
-if d.get("isc_warning"):
-    st.warning(
-        f"⚠️ Isc_string = {d['I_string']:.2f} A เกิน Inverter Isc limit ≈ {d['inv_i_sc']:.1f} A\n"
-        f"→ ตรวจสอบ Max Short-Circuit Current ใน Datasheet Inverter"
-    )
+col_inv, col_pv = st.columns(2)
 
-st.write(
-    f"- Panels required: **{d['panels_required']} แผง**\n"
-    f"- Strings required (ตามโหลด): **{d['strings_required']} string**\n"
-    f"- Inverter รองรับได้สูงสุด: **{d['strings_max']} string**"
-)
+with col_inv:
+    rows_inv = [
+        ("กำลังไฟฟ้า AC (Rated AC Power)",            f"{inv_ac/1000:.1f}", "kW"),
+        ("แรงดันสูงสุดที่รับได้ (Max. DC Voltage)",    f"{inv_v}",            "V"),
+        ("แรงดัน MPPT ต่ำสุด (MPPT Min. Voltage)",    f"{v_min_d}",          "V"),
+        ("แรงดัน MPPT สูงสุด (MPPT Max. Voltage)",    f"{v_max_d}",          "V"),
+        ("กระแสลัดวงจรสูงสุด (Max. SC Current)",      f"{inv_i}",            "A"),
+        ("จำนวน MPPT Tracker",                         f"{n_mppt}",           "ชุด"),
+        ("กำลัง PV สูงสุดที่รับได้ (Max. PV Power)",  f"{inv_pv/1000:.1f}", "kWp"),
+    ]
+    rows_html = "".join([
+        f'<tr style="{TR_Y}"><td style="{TD}">{r[0]}</td>'
+        f'<td style="{TDC}">{r[1]}</td><td style="{TDU}">{r[2]}</td></tr>'
+        for r in rows_inv
+    ])
+    st.markdown(
+        f'<div style="{HDR1}">⚡ Inverter (อินเวอร์เตอร์)</div>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{rows_html}</table>',
+        unsafe_allow_html=True)
 
-if d["strings_used"] < d["strings_required"]:
-    st.warning(
-        "⚠️ จำนวน String ถูกจำกัดด้วยกระแส Inverter\n"
-        "→ ระบบอาจผลิตไฟได้ไม่เต็มตาม Design PV"
-    )
+with col_pv:
+    rows_pv = [
+        ("กำลังไฟฟ้าสูงสุด (Rated Power, Pm)",         f"{Pm:.0f}",         "W"),
+        ("แรงดัน ณ กำลังสูงสุด (Vmp)",                 f"{Vmp:.2f}",        "V"),
+        ("แรงดันวงจรเปิด (Open Circuit Voltage, Voc)",  f"{Voc:.2f}",        "V"),
+        ("กระแส ณ กำลังสูงสุด (Imp)",                   f"{Imp:.2f}",        "A"),
+        ("กระแสลัดวงจร (Short Circuit Current, Isc)",   f"{Isc:.2f}",        "A"),
+        ("ขนาดระบบที่ออกแบบ (Design PV Capacity)",      f"{P_pv_design:.2f}","kWp"),
+        ("พลังงานที่ผลิตได้ (Estimated Energy/Day)",     f"{E_est_day:.1f}",  "kWh/วัน"),
+    ]
+    rows_html2 = "".join([
+        f'<tr style="{TR_Y}"><td style="{TD}">{r[0]}</td>'
+        f'<td style="{TDC}">{r[1]}</td><td style="{TDU}">{r[2]}</td></tr>'
+        for r in rows_pv
+    ])
+    st.markdown(
+        f'<div style="{HDR2}">☀️ PV Module (แผงโซลาร์) at STC</div>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{rows_html2}</table>',
+        unsafe_allow_html=True)
+
+# =================================================================
+# ส่วนที่ 2: ผลการออกแบบ String + ตรวจสอบ OK/FAIL
+# =================================================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("### 🔗 ผลการออกแบบ String (String Design Results)")
+
+col_sum, col_chk = st.columns([55, 45])
+
+with col_sum:
+    sum_rows = [
+        ("จำนวนแผงโซลาร์ใน 1 String (Panels/String)",         str(panels_per_string), "แผง"),
+        ("Vmp รวม String อุณหภูมิสูง (Vmpp,string hot)",       f"{Vmp_str:.1f}",       "V"),
+        ("Voc รวม String อุณหภูมิต่ำ (Voc,string cold)",       f"{Voc_str:.1f}",       "V"),
+        ("กระแสลัดวงจรของ String (Isc_string)",                 f"{I_str:.2f}",         "A"),
+        ("จำนวน String ที่ใช้งาน (Strings Used)",               str(strings_used),      "string"),
+        ("กำลัง DC ติดตั้งรวม (Total DC Installed Capacity)",   f"{dc_capacity:.2f}",   "kWp"),
+    ]
+    s_rows_html = "".join([
+        f'<tr style="{TR_Y}"><td style="{TD}">{r[0]}</td>'
+        f'<td style="{TDC}">{r[1]}</td><td style="{TDU}">{r[2]}</td></tr>'
+        for r in sum_rows
+    ])
+    st.markdown(
+        f'<div style="{HDR2}">📊 ตารางสรุปการออกแบบ</div>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{s_rows_html}</table>',
+        unsafe_allow_html=True)
+
+with col_chk:
+    chk_rows = [
+        ("จำนวนแผง ≥ n_min_mppt",                  pps_ok),
+        ("Vmpp,hot ≥ MPPT Min. Voltage",            vmpp_ok),
+        ("Voc,cold ≤ Max. DC Voltage",              voc_ok),
+        ("Isc_string ≤ Inv. SC Current × 1.25",    isc_ok),
+        ("String count ≤ Inverter Max Strings",     str_ok),
+        ("DC Capacity ≤ Inverter Max PV Power",     dc_ok),
+    ]
+    chk_rows_html = "".join([
+        f'<tr style="{TR_G}"><td style="{TD}">{r[0]}</td>'
+        f'<td style="padding:5px 9px;border:1px solid #9DC3E6;text-align:center;background:#E2EFDA">'
+        f'{_ok(r[1])}</td></tr>'
+        for r in chk_rows
+    ])
+    st.markdown(
+        f'<div style="{HDR2}">✅ ตรวจสอบเงื่อนไขความปลอดภัย</div>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{chk_rows_html}</table>',
+        unsafe_allow_html=True)
+
+# =================================================================
+# ส่วนที่ 3: MPPT Allocation Table
+# =================================================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("### ⚙️ การจัด MPPT Allocation")
+
+n_mppt_show = int(ss("mppt_count") or MPPT_COUNT_DEFAULT)
+alloc_show  = (list(mppt_alloc) + [0]*n_mppt_show)[:n_mppt_show]
+dc_total_w  = dc_capacity * 1000
+dc_ac_bg    = "#E2EFDA" if 1.10 <= dc_ac_ratio <= 1.25 else ("#FCE4D6" if dc_ac_ratio > 1.25 else "#FFF2CC")
+
+mppt_th = "".join([
+    f'<th style="background:#2E75B6;color:white;padding:6px 8px;border:1px solid #9DC3E6">MPPT.{i+1}</th>'
+    for i in range(n_mppt_show)
+])
+mppt_td = "".join([
+    f'<td style="text-align:center;padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{v}</td>'
+    for v in alloc_show
+])
+st.markdown(
+    f'<table style="width:100%;border-collapse:collapse;font-size:12px;text-align:center">'
+    f'<tr>'
+    f'<th style="background:#1F5C8B;color:white;padding:6px 8px;border:1px solid #9DC3E6">Inverter</th>'
+    f'{mppt_th}'
+    f'<th style="background:#1F5C8B;color:white;padding:6px 8px;border:1px solid #9DC3E6">จำนวนแผง<br>ทั้งหมด</th>'
+    f'<th style="background:#1F5C8B;color:white;padding:6px 8px;border:1px solid #9DC3E6">วัตต์แผง<br>(Wp/Module)</th>'
+    f'<th style="background:#1F5C8B;color:white;padding:6px 8px;border:1px solid #9DC3E6">Inverter<br>(W)</th>'
+    f'<th style="background:#1F5C8B;color:white;padding:6px 8px;border:1px solid #9DC3E6">วัตต์รวม<br>ของแผง (W)</th>'
+    f'<th style="background:#1F5C8B;color:white;padding:6px 8px;border:1px solid #9DC3E6">DC to AC<br>Ratio</th>'
+    f'</tr>'
+    f'<tr>'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">1</td>'
+    f'{mppt_td}'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{d.get("panels_required","-")}</td>'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{Pm:.0f}</td>'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{inv_ac:.0f}</td>'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{dc_total_w:.0f}</td>'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:{dc_ac_bg};font-weight:bold;font-size:14px">{dc_ac_ratio:.2f}</td>'
+    f'</tr></table>',
+    unsafe_allow_html=True)
+
+# =================================================================
+# ส่วนที่ 4: DC/AC Ratio Banner
+# =================================================================
+if 1.10 <= dc_ac_ratio <= 1.25:
+    dc_status = "✅ อยู่ในช่วงที่แนะนำ (1.10 – 1.25) | ระบบมีประสิทธิภาพดี"
+    dc_col = "#E2EFDA"; dc_bdr = "#375623"
+elif dc_ac_ratio > 1.25:
+    dc_status = "⚠️ สูงกว่าช่วงแนะนำ (>1.25) | เสี่ยงต่อ Clipping Loss"
+    dc_col = "#FCE4D6"; dc_bdr = "#C00000"
 else:
-    st.success("✅ จำนวน String เพียงพอตาม Design PV")
+    dc_status = "⚠️ ต่ำกว่าช่วงแนะนำ (<1.10) | Inverter ใหญ่เกินไป"
+    dc_col = "#FFF2CC"; dc_bdr = "#7F6000"
 
-if d["dc_power_installed"] > inv_pv:
-    st.warning(
-        f"⚠️ DC Power ติดตั้ง = {d['dc_power_installed']/1000:.2f} kWp "
-        f"เกิน Inverter PV Max ({inv_pv/1000:.2f} kWp)"
-    )
+st.markdown(
+    f'<div style="display:flex;align-items:center;border:2px solid {dc_bdr};'
+    f'border-radius:8px;overflow:hidden;margin:10px 0">'
+    f'<div style="background:#1F5C8B;color:white;padding:14px 20px;font-weight:bold;'
+    f'font-size:14px;min-width:150px;text-align:center">⚡ DC/AC Ratio</div>'
+    f'<div style="background:#F4B942;padding:14px 24px;font-size:36px;font-weight:bold;'
+    f'color:#1F5C8B;min-width:110px;text-align:center">{dc_ac_ratio:.2f}</div>'
+    f'<div style="background:{dc_col};padding:14px 20px;font-size:14px;'
+    f'color:{dc_bdr};flex:1;font-weight:bold">{dc_status}</div>'
+    f'</div>',
+    unsafe_allow_html=True)
 
-
-# --- MPPT Allocation ---
-st.markdown("## MPPT Allocation | การกระจาย String")
-for i, s in enumerate(d["mppt_allocation"], start=1):
-    st.write(f"- MPPT {i}: **{s} string(s)**")
-
-
-# --- Final Electrical Check ---
-st.markdown("## Final Electrical Check | ตรวจสอบขั้นสุดท้าย")
-
-dc_capacity = d["dc_capacity"]
-dc_ac_ratio = d["dc_ac_ratio"]
-panels_per_string = d["panels_per_string"]
-strings_used = d["strings_used"]
-
-st.success(
-    f"### ✅ Final System Configuration\n"
-    f"- DC Capacity: **{dc_capacity:.2f} kWp**\n"
-    f"- DC/AC Ratio: **{dc_ac_ratio:.2f}**\n"
-    f"- Voc,string (cold): **{d['Voc_string']:.0f} V**\n"
-    f"- Vmpp,string (hot): **{d['Vmp_string']:.0f} V**"
-)
-
-st.write(st.session_state.get("ai_result", "ยังไม่ได้เรียก AI"))
-
-
-# =========================================================
-# FINANCIAL PERFORMANCE
-# =========================================================
-st.header("Financial Performance | PVsyst-grade Analysis")
-
-CAPEX        = float(st.session_state.get("CAPEX", 480_000))
-project_life = int(st.session_state.get("years", 25))
-tariff_self  = float(st.session_state.get("tariff", 4.0))
-tariff_export = float(st.session_state.get("export_tariff", 0.0))
+# =================================================================
+# FINANCIAL
+# =================================================================
+CAPEX          = float(st.session_state.get("CAPEX", 480_000))
+project_life   = int(st.session_state.get("years", 25))
+tariff_self    = float(st.session_state.get("tariff", 4.0))
+tariff_export  = float(st.session_state.get("export_tariff", 0.0))
 self_use_ratio = float(st.session_state.get("self_use", 0.6))
 
 if E_est_day <= 0 or CAPEX <= 0:
-    st.warning("⚠️ Financial calculation not possible")
-    st.stop()
+    st.warning("⚠️ Financial calculation not possible"); st.stop()
 
 fin = calc_financials(
-    E_est_day=E_est_day,
-    CAPEX=CAPEX,
-    project_life=project_life,
-    tariff_self=tariff_self,
-    tariff_export=tariff_export,
-    self_use_ratio=self_use_ratio,
+    E_est_day=E_est_day, CAPEX=CAPEX, project_life=project_life,
+    tariff_self=tariff_self, tariff_export=tariff_export, self_use_ratio=self_use_ratio,
 )
-
 simple_payback     = fin["simple_payback"]
 discounted_payback = fin["discounted_payback"]
 npv                = fin["npv"]
 irr_val            = fin["irr_val"]
 
+e_yr    = fin.get("E_year_1", E_est_day * 365)
+co2_yr  = e_yr * 0.4715 / 1000
+co2_25  = co2_yr * 25
+pb_str  = f"{simple_payback:.1f} ปี"     if simple_payback     else f">{project_life} ปี"
+dpb_str = f"{discounted_payback:.1f} ปี" if discounted_payback else f">{project_life} ปี"
+irr_str = f"{irr_val*100:.1f}%"          if irr_val is not None else "-"
+npv_str = f"{npv:,.0f} ฿"               if npv is not None    else "-"
+
+# =================================================================
+# ส่วนที่ 5: Metric Cards
+# =================================================================
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("### 💰 ผลการวิเคราะห์เศรษฐศาสตร์ (Financial Analysis)")
+
+m1, m2, m3, m4, m5, m6 = st.columns(6)
+m1.metric("💵 เงินลงทุน (CAPEX)",       f"{CAPEX:,.0f} ฿")
+m2.metric("📅 คืนทุนธรรมดา (Payback)", pb_str)
+m3.metric("📅 คืนทุนคิดลด (Disc. PB)", dpb_str)
+m4.metric("📈 IRR",                      irr_str)
+m5.metric("💹 NPV",                      npv_str)
+m6.metric("🌿 ลด CO₂/ปี",               f"{co2_yr:.2f} t")
+
+# =================================================================
+# ส่วนที่ 6: Financial Detail Table
+# =================================================================
+fin_rows = [
+    (TR_Y, "เงินลงทุนเริ่มต้น (Capital Expenditure: CAPEX)",              f"{CAPEX:,.0f}",          "บาท"),
+    (TR_G, "พลังงานที่ผลิตได้ปีแรก (Year-1 Energy Production)",           f"{e_yr:,.0f}",           "kWh/ปี"),
+    (TR_Y, "อัตราค่าไฟที่ประหยัดได้ (Self-use Electricity Tariff)",       f"{tariff_self:.2f}",     "บาท/kWh"),
+    (TR_G, "สัดส่วนการใช้ไฟเอง (Self-consumption Ratio)",                  f"{self_use_ratio*100:.0f}", "%"),
+    (TR_Y, "ระยะเวลาคืนทุนแบบธรรมดา (Simple Payback Period)",             pb_str,                   "ปี"),
+    (TR_G, "ระยะเวลาคืนทุนแบบคิดลด (Discounted Payback Period)",          dpb_str,                  "ปี"),
+    (TR_Y, "มูลค่าปัจจุบันสุทธิ (Net Present Value: NPV)",                f"{npv:,.0f}",            "บาท"),
+    (TR_G, "อัตราผลตอบแทนภายใน (Internal Rate of Return: IRR)",           irr_str,                  "%"),
+    ("#E2EFDA", "การลดการปล่อย CO₂ ต่อปี (Annual CO₂ Reduction)",         f"{co2_yr:.2f}",          "tCO₂/ปี"),
+    ("#E2EFDA", "การลดการปล่อย CO₂ ตลอด 25 ปี (Lifetime CO₂ Reduction)", f"{co2_25:.1f}",          "tCO₂ (25 ปี)"),
+]
+fin_html = "".join([
+    f'<tr style="background:{r[0]}"><td style="{TD}">{r[1]}</td>'
+    f'<td style="{TDC};color:{"#375623" if "CO" in r[1] else "black"}">{r[2]}</td>'
+    f'<td style="{TDU}">{r[3]}</td></tr>'
+    for r in fin_rows
+])
+note_yr = fin.get("inv_replacement_year", 12)
 st.markdown(
-    f"### ผลการวิเคราะห์ทางการเงิน (Financial Results – PVsyst-grade)\n\n"
-    f"**เศรษฐศาสตร์ของระบบ (System Economics)**\n"
-    f"- เงินลงทุนเริ่มต้น (CAPEX): **{CAPEX:,.0f} THB**\n"
-    f"- พลังงานปีแรก (Year-1 Energy): **{fin['E_year_1']:,.0f} kWh/year**\n"
-    f"- อัตราการใช้ไฟเอง (Self-consumption): **{self_use_ratio*100:.0f} %**\n\n"
-    f"**ตัวชี้วัดทางการเงิน (Financial Indicators)**\n"
-    f"- ระยะเวลาคืนทุนแบบธรรมดา (Simple Payback):  \n"
-    f"  **{simple_payback if simple_payback else '>' + str(project_life)} ปี (years)**\n\n"
-    f"- ระยะเวลาคืนทุนแบบคิดลด (Discounted Payback):  \n"
-    f"  **{discounted_payback if discounted_payback else '>' + str(project_life)} ปี (years)**\n\n"
-    f"- มูลค่าปัจจุบันสุทธิ (NPV) @ {fin['discount_rate']*100:.0f}%:  \n"
-    f"  **{npv:,.0f} THB**\n\n"
-    f"- อัตราผลตอบแทนภายใน (IRR):  \n"
-    f"  **{irr_val*100:.1f} %**\n\n"
-    f"**หมายเหตุเชิงวิศวกรรม (Engineering Notes)**\n"
-    f"- คิดค่าการเสื่อมสภาพของแผง PV (PV degradation) = **0.5 %/year**\n"
-    f"- ค่าบำรุงรักษาระบบ (O&M) = **1.5 % ของ CAPEX ต่อปี**\n"
-    f"- ค่าทดแทนอินเวอร์เตอร์ (Inverter replacement) ปีที่ **{fin['inv_replacement_year']}**\n"
-    f"- รายได้แยกการใช้ไฟเอง (Self-use) และไฟส่งออก (Export)"
-)
+    f'<div style="{HDR1}">📊 รายละเอียดการวิเคราะห์เศรษฐศาสตร์และสิ่งแวดล้อม</div>'
+    f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+    f'<tr><th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:left">รายการ</th>'
+    f'<th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">ค่า</th>'
+    f'<th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">หน่วย</th></tr>'
+    f'{fin_html}'
+    f'<tr style="background:#F2F2F2"><td colspan="3" style="{TD};color:#666;font-size:11px">'
+    f'หมายเหตุ: PV Degradation = 0.5%/ปี | O&amp;M = 1.5%/ปี | '
+    f'Inverter Replacement ปีที่ {note_yr} | Grid Emission Factor = 0.4715 kgCO₂/kWh'
+    f'</td></tr></table>',
+    unsafe_allow_html=True)
+
 
 
 # =========================================================
