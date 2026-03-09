@@ -236,10 +236,10 @@ def build_ieee_paper(
     sum_rows = [
         [Paragraph("ตารางสรุป (ไม่ต้องแก้ไขตารางนี้)", S["WBOLD"]), "", ""],
         [Paragraph("จำนวนแผงโซลาร์ใน 1 String", S["LBL"]), Paragraph(_s(pps), S["VAL"]), Paragraph("แผง", S["UNIT"])],
-        [Paragraph("Vmp รวมของแผงโซลาร์ (STC)",   S["LBL"]), Paragraph(_s(Vmp_str,"{:.2f}") if Vmp_str else "-", S["VAL"]), Paragraph("V","")],
-        [Paragraph("Voc รวมของแผงโซลาร์ (STC)",   S["LBL"]), Paragraph(_s(Voc_str,"{:.2f}") if Voc_str else "-", S["VAL"]), Paragraph("V","")],
-        [Paragraph("Isc ของแผงโซลาร์ (STC)",      S["LBL"]), Paragraph(_s(I_str, "{:.2f}") if I_str else "-",   S["VAL"]), Paragraph("A","")],
-        [Paragraph("W รวมของแผง",                  S["LBL"]), Paragraph(_s(dc_total_w,"{:.0f}"), S["VAL"]),                  Paragraph("W","")],
+        [Paragraph("Vmp รวมของแผงโซลาร์ (STC)",   S["LBL"]), Paragraph(_s(Vmp_str,"{:.2f}") if Vmp_str else "-", S["VAL"]), Paragraph("V", S["UNIT"])],
+        [Paragraph("Voc รวมของแผงโซลาร์ (STC)",   S["LBL"]), Paragraph(_s(Voc_str,"{:.2f}") if Voc_str else "-", S["VAL"]), Paragraph("V", S["UNIT"])],
+        [Paragraph("Isc ของแผงโซลาร์ (STC)",      S["LBL"]), Paragraph(_s(I_str, "{:.2f}") if I_str else "-",   S["VAL"]), Paragraph("A", S["UNIT"])],
+        [Paragraph("W รวมของแผง",                  S["LBL"]), Paragraph(_s(dc_total_w,"{:.0f}"), S["VAL"]),                  Paragraph("W", S["UNIT"])],
     ]
     st_sum = Table(sum_rows, colWidths=[SW*0.64, SW*0.24, SW*0.12])
     st_sum.setStyle(_base_ts([
