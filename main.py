@@ -275,8 +275,8 @@ dc_ok   = bool(d["dc_power_installed"] <= inv_pv)
 
 def _ok(c):
     if c:
-        return '<span style="color:#375623;font-weight:bold;font-size:13px">✅ OK</span>'
-    return '<span style="color:#C00000;font-weight:bold;font-size:13px">❌ FAIL</span>'
+        return '<span style="color:#375623;font-weight:bold;font-size:13px">✅ ผ่าน</span>'
+    return '<span style="color:#C00000;font-weight:bold;font-size:13px">❌ ไม่ผ่าน</span>'
 
 HDR1 = "background:#1F5C8B;color:white;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px"
 HDR2 = "background:#2E75B6;color:white;padding:8px 12px;border-radius:6px 6px 0 0;font-weight:bold;font-size:14px"
@@ -366,23 +366,42 @@ with col_sum:
         unsafe_allow_html=True)
 
 with col_chk:
+    # (label, actual_val, unit, limit_val, condition_ok)
     chk_rows = [
-        ("จำนวนแผง ≥ n_min_mppt",                  pps_ok),
-        ("Vmpp,hot ≥ MPPT Min. Voltage",            vmpp_ok),
-        ("Voc,cold ≤ Max. DC Voltage",              voc_ok),
-        ("Isc_string ≤ Inv. SC Current × 1.25",    isc_ok),
-        ("String count ≤ Inverter Max Strings",     str_ok),
-        ("DC Capacity ≤ Inverter Max PV Power",     dc_ok),
+        ("จำนวนแผงต่อ String ≥ จำนวนแผงขั้นต่ำ MPPT",
+         f"{panels_per_string}", "แผง", f"≥ {d['n_min_mppt']}", pps_ok),
+        ("แรงดัน Vmp รวม String (ร้อน) ≥ แรงดัน MPPT ต่ำสุด",
+         f"{Vmp_str:.1f}", "V", f"≥ {v_min_val:.0f} V", vmpp_ok),
+        ("แรงดัน Voc รวม String (เย็น) ≤ แรงดันสูงสุด Inverter",
+         f"{Voc_str:.1f}", "V", f"≤ {inv_v:.0f} V", voc_ok),
+        ("กระแสลัดวงจร String ≤ กระแส Inverter × 1.25",
+         f"{I_str:.2f}", "A", f"≤ {inv_i*1.25:.2f} A", isc_ok),
+        ("จำนวน String ≤ จำนวน String สูงสุดของ Inverter",
+         f"{strings_used}", "string", f"≤ {d.get('strings_max','-')}", str_ok),
+        ("กำลัง DC รวม ≤ กำลัง PV สูงสุดที่ Inverter รับได้",
+         f"{dc_capacity:.2f}", "kWp", f"≤ {inv_pv/1000:.1f} kWp", dc_ok),
     ]
     chk_rows_html = "".join([
-        f'<tr style="{TR_G}"><td style="{TD}">{r[0]}</td>'
-        f'<td style="padding:5px 9px;border:1px solid #9DC3E6;text-align:center;background:#E2EFDA">'
-        f'{_ok(r[1])}</td></tr>'
+        f'<tr style="{TR_G}">'
+        f'<td style="{TD};font-size:12px">{r[0]}</td>'
+        f'<td style="padding:5px 6px;border:1px solid #9DC3E6;font-weight:bold;text-align:center">{r[1]}</td>'
+        f'<td style="padding:5px 4px;border:1px solid #9DC3E6;color:#777;text-align:center;font-size:11px">{r[2]}</td>'
+        f'<td style="padding:5px 6px;border:1px solid #9DC3E6;color:#555;text-align:center;font-size:11px">{r[3]}</td>'
+        f'<td style="padding:5px 6px;border:1px solid #9DC3E6;text-align:center;background:#E2EFDA">{_ok(r[4])}</td>'
+        f'</tr>'
         for r in chk_rows
     ])
     st.markdown(
         f'<div style="{HDR2}">✅ ตรวจสอบเงื่อนไขความปลอดภัย</div>'
-        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{chk_rows_html}</table>',
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        f'<tr>'
+        f'<th style="background:#2E75B6;color:white;padding:5px 8px;border:1px solid #9DC3E6;text-align:left">เงื่อนไข</th>'
+        f'<th style="background:#2E75B6;color:white;padding:5px 6px;border:1px solid #9DC3E6;text-align:center">ค่า</th>'
+        f'<th style="background:#2E75B6;color:white;padding:5px 4px;border:1px solid #9DC3E6;text-align:center">หน่วย</th>'
+        f'<th style="background:#2E75B6;color:white;padding:5px 6px;border:1px solid #9DC3E6;text-align:center">เกณฑ์</th>'
+        f'<th style="background:#2E75B6;color:white;padding:5px 6px;border:1px solid #9DC3E6;text-align:center">ผล</th>'
+        f'</tr>'
+        f'{chk_rows_html}</table>',
         unsafe_allow_html=True)
 
 # =================================================================
