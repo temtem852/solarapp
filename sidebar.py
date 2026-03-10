@@ -102,6 +102,9 @@ def _autofill_inverter(df: pd.DataFrame, label: str):
     mc_col = _find_col(df, _INV_MAP["mppt_count"])
     if mc_col:
         st.session_state["mppt_count"] = int(_get_val(row, [mc_col], 1))
+    # autofill inverter price
+    if "Price_THB" in row.index and pd.notna(row["Price_THB"]):
+        st.session_state["inv_price_thb"] = float(row["Price_THB"])
 
 
 def _autofill_panel(df: pd.DataFrame, label: str):
@@ -129,6 +132,9 @@ def _autofill_panel(df: pd.DataFrame, label: str):
         if col:
             val = float(_get_val(row, [col], st.session_state.get(key, 0)))
             st.session_state[key] = val
+    # autofill panel price
+    if "Price_THB" in row.index and pd.notna(row["Price_THB"]):
+        st.session_state["panel_price_thb"] = float(row["Price_THB"])
 
 
 # =========================================================
@@ -170,7 +176,7 @@ def render_sidebar():
     # ทำก่อน form render เพื่อให้ number_input อ่านค่าใหม่
     # -------------------------------------------------------
     # --- Panel dropdown (นอก form, ใช้ st.sidebar โดยตรง) ---
-    st.sidebar.subheader("เลือกแผงจาก Database")
+    st.sidebar.subheader("🔍 เลือกแผงจาก Database")
     panel_opts = ["— พิมพ์เอง —"] + _panel_labels(panels_db)
     prev_panel = st.session_state.get("_selected_panel", panel_opts[0])
     if prev_panel not in panel_opts:
@@ -181,10 +187,10 @@ def render_sidebar():
     )
     if selected_panel != "— พิมพ์เอง —":
         _autofill_panel(panels_db, selected_panel)
-        st.sidebar.caption(f"Autofill: {selected_panel}")
+        st.sidebar.caption(f"✅ Autofill: {selected_panel}")
 
     # --- Inverter dropdown (นอก form) ---
-    st.sidebar.subheader("เลือก Inverter จาก Database")
+    st.sidebar.subheader("🔍 เลือก Inverter จาก Database")
     inv_opts = ["— พิมพ์เอง —"] + _inv_labels(inverters_db)
     prev_inv = st.session_state.get("_selected_inv", inv_opts[0])
     if prev_inv not in inv_opts:
@@ -195,7 +201,7 @@ def render_sidebar():
     )
     if selected_inv != "— พิมพ์เอง —":
         _autofill_inverter(inverters_db, selected_inv)
-        st.sidebar.caption(f"Autofill: {selected_inv}")
+        st.sidebar.caption(f"✅ Autofill: {selected_inv}")
 
     # -------------------------------------------------------
     # FORM (ค่าที่ autofill จะปรากฏใน number_input อัตโนมัติ)
@@ -234,7 +240,11 @@ def render_sidebar():
 
         # ---------- ECONOMICS ----------
         st.header("เศรษฐศาสตร์โครงการ")
-        st.number_input("ต้นทุนลงทุน (CAPEX, บาท)", min_value=0, value=350000, step=10000, key="CAPEX")
+        st.caption("💡 ต้นทุนคำนวณจากราคาอุปกรณ์ใน Database อัตโนมัติ")
+        st.number_input("ราคาแผงโซลาร์ต่อแผง (บาท/แผง)", min_value=0, value=int(st.session_state.get("panel_price_thb", 4500)), step=100, key="panel_price_thb")
+        st.number_input("ราคา Inverter (บาท)", min_value=0, value=int(st.session_state.get("inv_price_thb", 20000)), step=1000, key="inv_price_thb")
+        st.slider("ค่าอุปกรณ์เสริม + ติดตั้ง (%)", 10, 60, 30, 5, key="accessories_pct",
+                  help="สายไฟ, โครงเหล็ก, ค่าแรง, ค่าดำเนินการ ฯลฯ")
         st.number_input("ค่าไฟฟ้า (Tariff, บาท/kWh)", min_value=0.0, value=4.0, step=0.1, key="tariff")
         st.number_input("ค่าไฟส่งออก (Export Tariff, บาท/kWh)", min_value=0.0, value=0.0, step=0.1, key="export_tariff")
         st.slider("สัดส่วนใช้ไฟเอง (Self-use ratio)", 0.0, 1.0, 0.6, 0.05, key="self_use")

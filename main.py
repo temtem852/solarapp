@@ -471,13 +471,28 @@ st.markdown(
     unsafe_allow_html=True)
 
 # =================================================================
-# FINANCIAL
+# FINANCIAL — คำนวณ CAPEX จาก Database
 # =================================================================
-CAPEX          = float(st.session_state.get("CAPEX", 480_000))
 project_life   = int(st.session_state.get("years", 25))
 tariff_self    = float(st.session_state.get("tariff", 4.0))
 tariff_export  = float(st.session_state.get("export_tariff", 0.0))
 self_use_ratio = float(st.session_state.get("self_use", 0.6))
+accessories_pct = float(st.session_state.get("accessories_pct", 30)) / 100.0
+
+# ราคาจาก DB (autofill หรือกรอกเอง)
+panel_price     = float(st.session_state.get("panel_price_thb", 4500))
+inv_price       = float(st.session_state.get("inv_price_thb",  20000))
+
+# จำนวนแผงและ inverter ที่ต้องใช้จริง
+n_panels_total  = d.get("panels_required", panels_per_string * strings_used)
+n_inverters     = 1   # 1 inverter per design
+
+# คำนวณต้นทุนแยกรายการ
+cost_panels     = panel_price  * n_panels_total
+cost_inverter   = inv_price    * n_inverters
+cost_equipment  = cost_panels  + cost_inverter
+cost_accessories = cost_equipment * accessories_pct
+CAPEX           = cost_equipment + cost_accessories
 
 if E_est_day <= 0 or CAPEX <= 0:
     st.warning("⚠️ Financial calculation not possible"); st.stop()
@@ -500,11 +515,57 @@ irr_str = f"{irr_val*100:.1f}%"          if irr_val is not None else "-"
 npv_str = f"{npv:,.0f} ฿"               if npv is not None    else "-"
 
 # =================================================================
-# ส่วนที่ 5: Metric Cards
+# ส่วนที่ 5: ตารางต้นทุนรวม (CAPEX Breakdown)
 # =================================================================
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("### 💰 ผลการวิเคราะห์เศรษฐศาสตร์ (Financial Analysis)")
 
+st.markdown(
+    f'''<div style="background:#1F5C8B;color:white;padding:6px 12px;border-radius:6px 6px 0 0;font-weight:bold">
+    💵 สรุปต้นทุนการติดตั้ง (CAPEX Breakdown)
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr>
+        <th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:left">รายการ</th>
+        <th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">จำนวน</th>
+        <th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">ราคาต่อหน่วย</th>
+        <th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">รวม (บาท)</th>
+      </tr>
+      <tr style="background:#FFF2CC">
+        <td style="padding:5px 10px;border:1px solid #9DC3E6">🔆 แผงโซลาร์เซลล์ (PV Modules)</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;text-align:center">{n_panels_total} แผง</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;text-align:center">{panel_price:,.0f} ฿/แผง</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;font-weight:bold;text-align:center">{cost_panels:,.0f}</td>
+      </tr>
+      <tr style="background:#F2F2F2">
+        <td style="padding:5px 10px;border:1px solid #9DC3E6">⚡ อินเวอร์เตอร์ (Inverter)</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;text-align:center">{n_inverters} เครื่อง</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;text-align:center">{inv_price:,.0f} ฿/เครื่อง</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;font-weight:bold;text-align:center">{cost_inverter:,.0f}</td>
+      </tr>
+      <tr style="background:#FFF2CC">
+        <td style="padding:5px 10px;border:1px solid #9DC3E6">🔧 อุปกรณ์เสริม + ค่าติดตั้ง ({accessories_pct*100:.0f}%)</td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;text-align:center" colspan="2">
+          สายไฟ, โครงเหล็ก, Protection, ค่าแรงติดตั้ง
+        </td>
+        <td style="padding:5px 10px;border:1px solid #9DC3E6;font-weight:bold;text-align:center">{cost_accessories:,.0f}</td>
+      </tr>
+      <tr style="background:#1F5C8B">
+        <td style="padding:7px 10px;border:1px solid #9DC3E6;color:white;font-weight:bold" colspan="3">
+          💰 ต้นทุนรวมทั้งหมด (Total CAPEX)
+        </td>
+        <td style="padding:7px 10px;border:1px solid #9DC3E6;color:#F4B942;font-weight:bold;text-align:center;font-size:16px">
+          {CAPEX:,.0f} ฿
+        </td>
+      </tr>
+    </table>''',
+    unsafe_allow_html=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# =================================================================
+# ส่วนที่ 5: Metric Cards
+# =================================================================
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("💵 เงินลงทุน (CAPEX)",       f"{CAPEX:,.0f} ฿")
 m2.metric("📅 คืนทุนธรรมดา (Payback)", pb_str)
