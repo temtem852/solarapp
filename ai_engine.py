@@ -102,7 +102,7 @@ def load_weights_config(csv_path: str = "Weights_Config.csv") -> dict:
 
 
 # =========================================================
-# GAUSSIAN PENALTY
+# GAUSSIAN PENALTY (IEEE style)
 # =========================================================
 def gaussian_score(x, mu, sigma):
     if sigma == 0:
@@ -160,7 +160,7 @@ def generate_llm_explanation(prompt, GEMINI_KEY=None, OPENAI_KEY=None):
 
 
 # =========================================================
-# MAIN AI SELECTOR
+# MAIN AI SELECTOR (IEEE FULL MCDM)
 # =========================================================
 def ai_select_from_database(
     panels_df,
@@ -451,7 +451,7 @@ def ai_select_from_database(
     hard_limit_status = (
         f"⚠️ Hard Limit FAIL ({hard_fail_count}/{total_inv} inverters ถูกตัดออก)"
         if hard_fail_count > 0
-        else "ทุก inverter รองรับ Total Panel Watt"
+        else "✅ Hard Limit PASS (ทุก inverter รองรับ Total Panel Watt)"
     )
 
     eff_status = (
@@ -531,3 +531,201 @@ Inverters ผ่านเกณฑ์ : {eff_ok_count}/{total_inv}
     )
 
     return result
+
+
+# =========================================================
+# DATASHEET EXTRACTOR
+# วิธี: ดาวน์โหลด PDF → แปลงเป็น text → ส่งให้ Gemini/OpenAI
+# รองรับ free tier เพราะส่งแค่ text ไม่ส่ง PDF file
+# =========================================================
+import requests, json, re, io
+
+def _pdf_to_text(url: str, timeout: int = 20) -> str:
+    """ดาวน์โหลด PDF แล้วแปลงเป็น text ด้วย pdfplumber"""
+    import pdfplumber
+    resp = requests.get(url, timeout=timeout,
+                        headers={"User-Agent": "Mozilla/5.0",
+                                 "Accept": "application/pdf"})
+    resp.raise_for_status()
+    text_pages = []
+    with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+        for page in pdf.pages[:6]:          # อ่านแค่ 6 หน้าแรก
+            t = page.extract_text()
+            if t:
+                text_pages.append(t)
+    return "\n".join(text_pages)[:6000]     # จำกัด 6000 chars
+
+
+def _ask_gemini_text(prompt: str, GEMINI_KEY: str) -> str:
+    """เรียก Gemini text API (ฟรี tier รองรับ)"""
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0, "maxOutputTokens": 512},
+    }
+    resp = requests.post(
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"gemini-1.5-flash:generateContent?key={GEMINI_KEY}",
+        json=payload, timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+
+def _ask_openai_text(prompt: str, OPENAI_KEY: str) -> str:
+    """Fallback: เรียก OpenAI text API"""
+    headers = {"Authorization": f"Bearer {OPENAI_KEY}",
+               "Content-Type": "application/json"}
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0, "max_tokens": 512,
+    }
+    resp = requests.post("https://api.openai.com/v1/chat/completions",
+                         headers=headers, json=payload, timeout=30)
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"]
+
+
+def extract_specs_from_datasheet(
+    pdf_url: str, eq_type: str, GEMINI_KEY: str = "", OPENAI_KEY: str = ""
+) -> dict:
+    """
+    PDF URL → text → LLM → dict of specs
+    ทำงานได้บน Gemini free tier เพราะไม่ส่ง PDF file
+    """
+    if not pdf_url:
+        return {"_error": "ไม่มี PDF URL"}
+
+    # 1. แปลง PDF เป็น text
+    try:
+        pdf_text = _pdf_to_text(pdf_url)
+    except Exception as e:
+        return {"_error": f"อ่าน PDF ไม่ได้: {e}"}
+
+    if not pdf_text.strip():
+        return {"_error": "PDF ไม่มีข้อความ (อาจเป็นรูปภาพ)"}
+
+    # 2. สร้าง prompt
+    if eq_type == "Panels_DB":
+        fields = (
+            "Pmax_W (Maximum Power Wp), "
+            "Voc_V (Open Circuit Voltage V), "
+            "Isc_A (Short Circuit Current A), "
+            "Vmp_V (Maximum Power Voltage V), "
+            "Imp_A (Maximum Power Current A), "
+            "Efficiency_pct (Module Efficiency %)"
+        )
+        example = '{"Pmax_W":580,"Voc_V":49.8,"Isc_A":14.2,"Vmp_V":41.5,"Imp_A":13.6,"Efficiency_pct":22.4}'
+    else:
+        fields = (
+            "Power_kW (Rated AC Output Power kW — if W divide by 1000), "
+            "Max_PV_Power_W (Max DC Input Power W), "
+            "Max_DC_Current_A (Max Input Current per MPPT A), "
+            "Max_DC_Voltage_V (Max DC Voltage V), "
+            "MPPT_min_V (MPPT min voltage V), "
+            "MPPT_max_V (MPPT max voltage V)"
+        )
+        example = '{"Power_kW":10,"Max_PV_Power_W":13000,"Max_DC_Current_A":25,"Max_DC_Voltage_V":1100,"MPPT_min_V":200,"MPPT_max_V":850}'
+
+    prompt = f"""You are a solar equipment datasheet parser.
+From the following datasheet text, extract ONLY these numeric values: {fields}
+
+Return ONLY a valid JSON object like this example: {example}
+Use null for any value not found. No explanation, no markdown, just raw JSON.
+
+--- DATASHEET TEXT ---
+{pdf_text}
+--- END ---"""
+
+    # 3. เรียก LLM (Gemini ก่อน fallback OpenAI)
+    raw = None
+    for fn, key, name in [
+        (_ask_gemini_text, GEMINI_KEY, "Gemini"),
+        (_ask_openai_text, OPENAI_KEY, "OpenAI"),
+    ]:
+        if not key:
+            continue
+        try:
+            raw = fn(prompt, key)
+            break
+        except Exception as e:
+            last_err = f"{name}: {e}"
+
+    if raw is None:
+        return {"_error": last_err if "last_err" in dir() else "ไม่มี API key"}
+
+    # 4. parse JSON
+    try:
+        clean = re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
+        return json.loads(clean)
+    except Exception:
+        return {"_error": f"แปลง JSON ไม่ได้: {raw[:200]}"}
+
+
+# =========================================================
+# PRICE SEARCHER — ค้นราคาอุปกรณ์ ด้วย SerpAPI
+# =========================================================
+def search_price(brand: str, model: str, SERPAPI_KEY: str) -> dict:
+    """
+    ค้นราคาจาก Google Shopping ผ่าน SerpAPI
+    Returns {"price_thb": float | None, "source": str, "url": str}
+    """
+    if not SERPAPI_KEY:
+        return {"price_thb": None, "source": "", "url": ""}
+
+    try:
+        from serpapi import GoogleSearch
+    except ImportError:
+        from serpapi.google_search import GoogleSearch
+
+    queries = [
+        f"{brand} {model} ราคา บาท",
+        f"{brand} {model} price THB",
+        f"{brand} {model} solar panel price",
+    ]
+
+    for q in queries:
+        try:
+            params = {
+                "engine":   "google",
+                "q":        q,
+                "api_key":  SERPAPI_KEY,
+                "num":      10,
+                "gl":       "th",
+                "hl":       "th",
+            }
+            res = GoogleSearch(params).get_dict()
+
+            # 1. ลองดู shopping_results ก่อน
+            for item in res.get("shopping_results", []):
+                price_str = item.get("price", "")
+                nums = re.findall(r"[\d,]+\.?\d*", price_str.replace(",", ""))
+                if nums:
+                    price = float(nums[0])
+                    # ถ้าน้อยกว่า 100 อาจเป็นดอลลาร์ ×33
+                    if price < 100:
+                        price *= 33
+                    return {
+                        "price_thb": price,
+                        "source": item.get("source", "Google Shopping"),
+                        "url":    item.get("link", ""),
+                    }
+
+            # 2. ลอง organic_results — หาตัวเลขที่น่าจะเป็นราคาไทย
+            for r in res.get("organic_results", []):
+                snippet = r.get("snippet", "") + " " + r.get("title", "")
+                # หา pattern เช่น 4,500 บาท / ฿4500 / THB 4500
+                m = re.search(r"(?:฿|THB|บาท)[^\d]*(\d[\d,]+)|(\d[\d,]+)[^\d]*(?:฿|บาท|THB)", snippet)
+                if m:
+                    num_str = (m.group(1) or m.group(2)).replace(",", "")
+                    price = float(num_str)
+                    if 500 < price < 5_000_000:
+                        return {
+                            "price_thb": price,
+                            "source": r.get("source", r.get("displayed_link", "")),
+                            "url":    r.get("link", ""),
+                        }
+        except Exception:
+            continue
+
+    return {"price_thb": None, "source": "ไม่พบราคา", "url": ""}
