@@ -315,7 +315,7 @@ with col_inv:
     ])
     st.markdown(
         f'<div style="{HDR1}">⚡ Inverter (อินเวอร์เตอร์)</div>'
-        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{rows_html}</table>',
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">''<tr><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:left">รายการ</th><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:center">ค่า</th><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:center">หน่วย</th></tr>'f'{rows_html}</table>',
         unsafe_allow_html=True)
 
 with col_pv:
@@ -335,7 +335,7 @@ with col_pv:
     ])
     st.markdown(
         f'<div style="{HDR2}">☀️ PV Module (แผงโซลาร์) at STC</div>'
-        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{rows_html2}</table>',
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">''<tr><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:left">รายการ</th><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:center">ค่า</th><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:center">หน่วย</th></tr>'f'{rows_html2}</table>',
         unsafe_allow_html=True)
 
 # =================================================================
@@ -362,7 +362,7 @@ with col_sum:
     ])
     st.markdown(
         f'<div style="{HDR2}">📊 ตารางสรุปการออกแบบ</div>'
-        f'<table style="width:100%;border-collapse:collapse;font-size:13px">{s_rows_html}</table>',
+        f'<table style="width:100%;border-collapse:collapse;font-size:13px">''<tr><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:left">รายการ</th><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:center">ค่า</th><th style="background:#2E75B6;color:white;padding:5px 9px;border:1px solid #9DC3E6;text-align:center">หน่วย</th></tr>'f'{s_rows_html}</table>',
         unsafe_allow_html=True)
 
 with col_chk:
