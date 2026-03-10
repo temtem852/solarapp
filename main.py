@@ -96,88 +96,97 @@ for ui_tab, sheet_name in zip(tab_ui, tabs.values()):
 
 
 # =========================================================
-# SERPAPI SEARCH
+# SERPAPI SEARCH & SAVE
 # =========================================================
-st.header(" ค้นหาอุปกรณ์ ")
+st.header("🔍 ค้นหาและบันทึกอุปกรณ์")
+
+eq_type = st.selectbox("ประเภทอุปกรณ์ (Type)", ["Panels_DB", "Inverters_DB"], key="eq_type_sel")
 
 c1, c2 = st.columns(2)
-
 with c1:
-    eq_type = st.selectbox("ประเภทอุปกรณ์ (Type)", ["Panels_DB", "Inverters_DB"])
-    brand   = st.text_input("ยี่ห้อ (Brand)")
-    model   = st.text_input("รุ่น (Model)")
-    power   = st.number_input("กำลังไฟฟ้า (Power, W)", min_value=0)
+    brand = st.text_input("ยี่ห้อ (Brand)", key="search_brand")
+    model = st.text_input("รุ่น (Model)",   key="search_model")
 
 with c2:
     query = st.text_input(
         "คำค้นหา (Search query)",
         value=f"{brand} {model} datasheet filetype:pdf".strip(),
+        key="search_query",
     )
 
-if st.button(" Search & Save"):
+# --- สเปคอุปกรณ์ตาม type ---
+st.markdown("#### กรอกสเปค (ใส่ข้อมูลจาก Datasheet)")
+if eq_type == "Panels_DB":
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    s_pmax = sc1.number_input("Pmax (W)",         min_value=0,   value=0,    step=5,   key="s_pmax")
+    s_voc  = sc1.number_input("Voc (V)",           min_value=0.0, value=0.0,  step=0.1, key="s_voc")
+    s_isc  = sc2.number_input("Isc (A)",           min_value=0.0, value=0.0,  step=0.1, key="s_isc")
+    s_vmp  = sc2.number_input("Vmp (V)",           min_value=0.0, value=0.0,  step=0.1, key="s_vmp")
+    s_imp  = sc3.number_input("Imp (A)",           min_value=0.0, value=0.0,  step=0.1, key="s_imp")
+    s_eff  = sc3.number_input("Efficiency (%)",    min_value=0.0, value=0.0,  step=0.1, key="s_eff")
+    s_price= sc4.number_input("ราคา (Price, บาท)", min_value=0,   value=0,    step=100, key="s_price_panel")
+else:
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    s_pkw    = sc1.number_input("AC Power (kW)",       min_value=0.0, value=0.0,  step=0.5, key="s_pkw")
+    s_pvmax  = sc1.number_input("Max PV Power (W)",    min_value=0,   value=0,    step=500, key="s_pvmax")
+    s_idcmax = sc2.number_input("Max DC Current (A)",  min_value=0.0, value=0.0,  step=0.5, key="s_idcmax")
+    s_vdcmax = sc2.number_input("Max DC Voltage (V)",  min_value=0,   value=0,    step=50,  key="s_vdcmax")
+    s_vmpmin = sc3.number_input("MPPT Min (V)",        min_value=0,   value=0,    step=10,  key="s_vmpmin")
+    s_vmpmax = sc3.number_input("MPPT Max (V)",        min_value=0,   value=0,    step=10,  key="s_vmpmax")
+    s_price_inv = sc4.number_input("ราคา (Price, บาท)",min_value=0,   value=0,    step=500, key="s_price_inv")
 
+col_btn1, col_btn2 = st.columns([1, 3])
+do_search = col_btn1.button("🔍 Search Datasheet", key="btn_search")
+do_save   = col_btn2.button("💾 Save to Database", key="btn_save", type="primary")
+
+# ---- SEARCH ----
+if do_search:
     if not SERPAPI_KEY:
-        st.error("❌ ยังไม่ได้ตั้งค่า SERPAPI_KEY")
-        st.stop()
-
+        st.error("❌ ยังไม่ได้ตั้งค่า SERPAPI_KEY"); st.stop()
     if not brand or not model:
-        st.warning("⚠️ กรุณากรอก Brand และ Model")
-        st.stop()
+        st.warning("⚠️ กรุณากรอก Brand และ Model"); st.stop()
 
-    try:
-        ws = spreadsheet.worksheet(eq_type)
-    except Exception:
-        st.error(f"❌ ไม่พบแท็บ {eq_type} ใน Google Sheets")
-        st.stop()
-
-    records  = ws.get_all_records()
-    df_exist = pd.DataFrame(records) if records else pd.DataFrame()
-
-    params = {
-        "engine":  "google",
-        "q":       query,
-        "api_key": SERPAPI_KEY,
-        "num":     10,
-    }
+    params = {"engine": "google", "q": query, "api_key": SERPAPI_KEY, "num": 10}
     res = GoogleSearch(params).get_dict()
 
     pdf_candidates = []
     for r in res.get("organic_results", []):
-        link    = r.get("link", "")
-        title   = r.get("title", "").lower()
-
+        link  = r.get("link", "")
+        title = r.get("title", "").lower()
         if link.lower().endswith(".pdf"):
             score = 0
-            if "datasheet" in title or "data sheet" in title:
-                score += 2
-            if "specification" in title:
-                score += 1
-            if brand.lower() in title:
-                score += 1
-            if model.lower() in title:
-                score += 2
-            pdf_candidates.append({
-                "title":  r.get("title", ""),
-                "link":   link,
-                "score":  score,
-                "source": r.get("source", "Google"),
-            })
+            if "datasheet" in title or "data sheet" in title: score += 2
+            if "specification" in title: score += 1
+            if brand.lower() in title:  score += 1
+            if model.lower() in title:  score += 2
+            pdf_candidates.append({"title": r.get("title",""), "link": link,
+                                    "score": score, "source": r.get("source","Google")})
 
     pdf_candidates = sorted(pdf_candidates, key=lambda x: x["score"], reverse=True)
+    st.session_state["_pdf_candidates"] = pdf_candidates
+    st.session_state["_search_done"]    = True
 
-    st.markdown("### Datasheet ที่พบ ")
+if st.session_state.get("_search_done"):
+    pdf_candidates = st.session_state.get("_pdf_candidates", [])
+    st.markdown("**Datasheet ที่พบ:**")
     if pdf_candidates:
         for i, p in enumerate(pdf_candidates[:3], start=1):
-            st.markdown(
-                f"**{i}. {p['title']}**  \n"
-                f" [เปิด Datasheet PDF]({p['link']})  \n"
-                f"แหล่งที่มา (Source): {p['source']}"
-            )
+            st.markdown(f"**{i}. {p['title']}** | [เปิด PDF]({p['link']}) | Source: {p['source']}")
     else:
         st.warning("⚠️ ไม่พบ Datasheet PDF ที่ชัดเจน")
 
-    datasheet = pdf_candidates[0]["link"]   if pdf_candidates else ""
-    source    = pdf_candidates[0]["source"] if pdf_candidates else "Google"
+# ---- SAVE ----
+if do_save:
+    if not brand or not model:
+        st.warning("⚠️ กรุณากรอก Brand และ Model"); st.stop()
+
+    try:
+        ws = spreadsheet.worksheet(eq_type)
+    except Exception:
+        st.error(f"❌ ไม่พบแท็บ {eq_type} ใน Google Sheets"); st.stop()
+
+    records  = ws.get_all_records()
+    df_exist = pd.DataFrame(records) if records else pd.DataFrame()
 
     # Duplicate check
     if not df_exist.empty and {"Brand", "Model"}.issubset(df_exist.columns):
@@ -187,17 +196,34 @@ if st.button(" Search & Save"):
         ]
         if not dup.empty:
             st.warning("⚠️ อุปกรณ์นี้มีอยู่แล้วในฐานข้อมูล")
-            st.dataframe(dup)
-            st.stop()
+            st.dataframe(dup); st.stop()
 
-    append_to_sheet(ws, [
-        brand, model, power, "",
-        datasheet, source,
-        datetime.now().strftime("%Y-%m-%d %H:%M"),
-        query,
-    ])
+    pdf_candidates = st.session_state.get("_pdf_candidates", [])
+    datasheet = pdf_candidates[0]["link"]   if pdf_candidates else ""
+    source    = pdf_candidates[0]["source"] if pdf_candidates else "Manual"
+    now_str   = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    st.success(f"✅ บันทึกอุปกรณ์ลงแท็บ {eq_type} เรียบร้อย")
+    # --- บันทึกตาม column order ของแต่ละ sheet ---
+    if eq_type == "Panels_DB":
+        # Brand, Model, Pmax_W, Voc_V, Isc_A, Vmp_V, Imp_A, Efficiency_pct,
+        # Price_THB, Datasheet_URL, Source, Last_Update
+        row_data = [
+            brand, model,
+            s_pmax, s_voc, s_isc, s_vmp, s_imp, s_eff,
+            s_price, datasheet, source, now_str
+        ]
+    else:
+        # Brand, Model, Power_kW, Max_PV_Power_W, Max_DC_Current_A, Max_DC_Voltage_V,
+        # MPPT_min_V, MPPT_max_V, Type, Phase, Electrical_Check, Price_THB
+        row_data = [
+            brand, model,
+            s_pkw, s_pvmax, s_idcmax, s_vdcmax, s_vmpmin, s_vmpmax,
+            "On-Grid", 1, "", s_price_inv
+        ]
+
+    append_to_sheet(ws, row_data)
+    st.session_state["_search_done"] = False
+    st.success(f"✅ บันทึก {brand} {model} ลงแท็บ {eq_type} เรียบร้อย")
     st.rerun()
 
 
