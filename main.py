@@ -127,13 +127,15 @@ if eq_type == "Panels_DB":
     s_price= sc4.number_input("ราคา (Price, บาท)", min_value=0,   value=0,    step=100, key="s_price_panel")
 else:
     sc1, sc2, sc3, sc4 = st.columns(4)
-    s_pkw    = sc1.number_input("AC Power (kW)",       min_value=0.0, value=0.0,  step=0.5, key="s_pkw")
-    s_pvmax  = sc1.number_input("Max PV Power (W)",    min_value=0,   value=0,    step=500, key="s_pvmax")
-    s_idcmax = sc2.number_input("Max DC Current (A)",  min_value=0.0, value=0.0,  step=0.5, key="s_idcmax")
-    s_vdcmax = sc2.number_input("Max DC Voltage (V)",  min_value=0,   value=0,    step=50,  key="s_vdcmax")
-    s_vmpmin = sc3.number_input("MPPT Min (V)",        min_value=0,   value=0,    step=10,  key="s_vmpmin")
-    s_vmpmax = sc3.number_input("MPPT Max (V)",        min_value=0,   value=0,    step=10,  key="s_vmpmax")
-    s_price_inv = sc4.number_input("ราคา (Price, บาท)",min_value=0,   value=0,    step=500, key="s_price_inv")
+    s_pkw       = sc1.number_input("AC Power (kW)",        min_value=0.0, value=0.0, step=0.5,  key="s_pkw")
+    s_pvmax     = sc1.number_input("Max PV Power (W)",     min_value=0,   value=0,   step=500,  key="s_pvmax")
+    s_idcmax    = sc2.number_input("Max DC Current (A)",   min_value=0.0, value=0.0, step=0.5,  key="s_idcmax")
+    s_vdcmax    = sc2.number_input("Max DC Voltage (V)",   min_value=0,   value=0,   step=50,   key="s_vdcmax")
+    s_vmpmin    = sc3.number_input("MPPT Min (V)",         min_value=0,   value=0,   step=10,   key="s_vmpmin")
+    s_vmpmax    = sc3.number_input("MPPT Max (V)",         min_value=0,   value=0,   step=10,   key="s_vmpmax")
+    s_mppt_count= sc3.number_input("จำนวน MPPT",           min_value=1,   value=1,   step=1,    key="s_mppt_count")
+    s_eff_inv   = sc4.number_input("Efficiency (%)",       min_value=0.0, value=0.0, step=0.1,  key="s_eff_inv")
+    s_price_inv = sc4.number_input("ราคา (Price, บาท)",    min_value=0,   value=0,   step=500,  key="s_price_inv")
 
 col_btn1, col_btn2 = st.columns([1, 3])
 do_search = col_btn1.button("🔍 Search Datasheet", key="btn_search")
@@ -214,11 +216,11 @@ if do_save:
         ]
     else:
         # Brand, Model, Power_kW, Max_PV_Power_W, Max_DC_Current_A, Max_DC_Voltage_V,
-        # MPPT_min_V, MPPT_max_V, Type, Phase, Electrical_Check, Price_THB
+        # MPPT_min_V, MPPT_max_V, MPPT_Count, Type, Phase, Efficiency_%, Price_THB, Datasheet_URL
         row_data = [
             brand, model,
             s_pkw, s_pvmax, s_idcmax, s_vdcmax, s_vmpmin, s_vmpmax,
-            "On-Grid", 1, "", s_price_inv
+            s_mppt_count, "On-Grid", 1, s_eff_inv, s_price_inv, datasheet
         ]
 
     append_to_sheet(ws, row_data)

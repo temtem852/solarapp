@@ -23,13 +23,15 @@ PANEL_COL_ALIASES = {
 }
 
 INV_COL_ALIASES = {
-    "Power_kW":   ["Power_kW", "Power_W", "Power (W)", "AC Power (W)", "Rated Power (W)", "Power"],
-    "I_max_A":    ["Max_DC_Current_A", "I_max_A", "I_max (A)", "Max Input Current (A)", "Idc_max", "I_max"],
-    "V_max_V":    ["Max_DC_Voltage_V", "V_max_V", "V_max (V)", "Max DC Voltage (V)", "Vdc_max", "V_max"],
-    "MPPT_min_V": ["MPPT_min_V", "MPPT Min (V)", "MPPT_min", "Vmppt_min"],
-    "MPPT_max_V": ["MPPT_max_V", "MPPT Max (V)", "MPPT_max", "Vmppt_max"],
-    "Max_PV_Power": ["Max_PV_Power_W", "Max_PV_Power", "Max PV Power (W)", "PV_Power_max", "inv_pv_power_max"],
-    "Model":      ["Model", "model", "Model Name", "Product"],
+    "Power_kW":    ["Power_kW", "Power_W", "Power (W)", "AC Power (W)", "Rated Power (W)", "Power"],
+    "I_max_A":     ["Max_DC_Current_A", "I_max_A", "I_max (A)", "Max Input Current (A)", "Idc_max", "I_max"],
+    "V_max_V":     ["Max_DC_Voltage_V", "V_max_V", "V_max (V)", "Max DC Voltage (V)", "Vdc_max", "V_max"],
+    "MPPT_min_V":  ["MPPT_min_V", "MPPT Min (V)", "MPPT_min", "Vmppt_min"],
+    "MPPT_max_V":  ["MPPT_max_V", "MPPT Max (V)", "MPPT_max", "Vmppt_max"],
+    "MPPT_Count":  ["MPPT_Count", "MPPT", "MPPT_count", "Num MPPT", "Number of MPPT"],
+    "Efficiency":  ["Efficiency_%", "Efficiency_pct", "Efficiency (%)", "Eff_%", "eff"],
+    "Max_PV_Power":["Max_PV_Power_W", "Max_PV_Power", "Max PV Power (W)", "PV_Power_max", "inv_pv_power_max"],
+    "Model":       ["Model", "model", "Model Name", "Product"],
 }
 
 

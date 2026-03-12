@@ -16,7 +16,7 @@ _INV_MAP = {
     "pv_max":      ["Max_PV_Power_W", "Max_PV_Power", "Max PV Power (W)"],
     "mppt_min":    ["MPPT_min_V", "MPPT Min (V)", "Vmppt_min"],
     "mppt_max":    ["MPPT_max_V", "MPPT Max (V)", "Vmppt_max"],
-    "mppt_count":  ["MPPT", "MPPT_count", "Num MPPT", "Number of MPPT"],
+    "mppt_count":  ["MPPT_Count", "MPPT", "MPPT_count", "Num MPPT", "Number of MPPT"],
     "model":       ["Model", "model", "Model Name"],
     "brand":       ["Brand", "brand"],
 }
@@ -102,9 +102,26 @@ def _autofill_inverter(df: pd.DataFrame, label: str):
     mc_col = _find_col(df, _INV_MAP["mppt_count"])
     if mc_col:
         st.session_state["mppt_count"] = int(_get_val(row, [mc_col], 1))
+
+    # autofill MPPT_Count (new DB column name)
+    for mppt_col in ["MPPT_Count", "MPPT_count", "MPPT"]:
+        if mppt_col in row.index and pd.notna(row[mppt_col]):
+            st.session_state["mppt_count"] = int(row[mppt_col])
+            break
+
     # autofill inverter price
     if "Price_THB" in row.index and pd.notna(row["Price_THB"]):
         st.session_state["inv_price_thb"] = float(row["Price_THB"])
+
+    # autofill inverter efficiency
+    for eff_col in ["Efficiency_%", "Efficiency_pct", "Efficiency"]:
+        if eff_col in row.index and pd.notna(row[eff_col]):
+            st.session_state["inv_efficiency"] = float(row[eff_col])
+            break
+
+    # autofill datasheet URL
+    if "Datasheet_URL" in row.index and pd.notna(row["Datasheet_URL"]):
+        st.session_state["inv_datasheet_url"] = str(row["Datasheet_URL"])
 
 
 def _autofill_panel(df: pd.DataFrame, label: str):
@@ -135,6 +152,10 @@ def _autofill_panel(df: pd.DataFrame, label: str):
     # autofill panel price
     if "Price_THB" in row.index and pd.notna(row["Price_THB"]):
         st.session_state["panel_price_thb"] = float(row["Price_THB"])
+
+    # autofill panel datasheet URL
+    if "Datasheet_URL" in row.index and pd.notna(row["Datasheet_URL"]):
+        st.session_state["panel_datasheet_url"] = str(row["Datasheet_URL"])
 
 
 # =========================================================
@@ -236,7 +257,10 @@ def render_sidebar():
         st.subheader("MPPT Setting")
         st.number_input("MPPT Min Voltage (V)", min_value=10, value=max(10, int(st.session_state.get("v_mppt_min", 200))), step=10, key="v_mppt_min")
         st.number_input("MPPT Max Voltage (V)", min_value=50, value=max(50, int(st.session_state.get("v_mppt_max", 850))), step=10, key="v_mppt_max")
-        st.number_input("จำนวน MPPT", min_value=1, max_value=6, value=int(st.session_state.get("mppt_count", 1)), step=1, key="mppt_count")
+        _mppt_val = int(st.session_state.get("mppt_count", 1))
+        st.number_input("จำนวน MPPT (autofill จาก DB)", min_value=1, max_value=12,
+                        value=_mppt_val, step=1, key="mppt_count",
+                        help="ค่านี้จะถูกเติมอัตโนมัติเมื่อเลือก Inverter จาก Database")
 
         # ---------- ECONOMICS ----------
         st.header("เศรษฐศาสตร์โครงการ")
