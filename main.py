@@ -677,8 +677,116 @@ if st.button("Generate AI Recommendation", disabled=st.session_state["ai_loading
         st.session_state["ai_loading"] = False
 
 if st.session_state.get("ai_result"):
-    st.markdown("## AI Recommendation Result")
-    st.code(st.session_state["ai_result"])
+    raw_ai = st.session_state["ai_result"]
+    st.markdown("### 🤖 ผลการแนะนำอุปกรณ์โดย AI (IEEE MCDM)")
+
+    # parse JSON + LLM
+    import json as _json
+    ai_data = None
+    llm_text = ""
+    if "AI_RESULT_JSON:" in raw_ai and "|||LLM|||" in raw_ai:
+        try:
+            json_part, llm_text = raw_ai.split("|||LLM|||", 1)
+            json_str = json_part.replace("AI_RESULT_JSON:", "").strip()
+            ai_data  = _json.loads(json_str)
+        except Exception:
+            ai_data = None
+
+    if ai_data:
+        _hdra = "background:#1F5C8B;color:white;padding:6px 12px;border-radius:6px 6px 0 0;font-weight:bold"
+        _hdrb = "background:#2E75B6;color:white;padding:6px 12px;border-radius:6px 6px 0 0;font-weight:bold"
+        _TD   = "padding:5px 10px;border:1px solid #9DC3E6"
+        _TDC  = "padding:5px 10px;border:1px solid #9DC3E6;font-weight:bold;text-align:center"
+        _TDU  = "padding:5px 10px;border:1px solid #9DC3E6;color:#777;text-align:center;font-size:11px"
+        _TRY  = "background:#FFF2CC"
+        _TRG  = "background:#F2F2F2"
+
+        # --- Row 1: อุปกรณ์ที่ AI เลือก ---
+        ca, cb = st.columns(2)
+        with ca:
+            st.markdown(
+                f'<div style="{_hdra}">☀️ แผงโซลาร์ที่ AI แนะนำ</div>'
+                f'<div style="background:#FFF2CC;padding:14px;border:1px solid #9DC3E6;'
+                f'font-size:18px;font-weight:bold;text-align:center">{ai_data["panel_model"]}</div>',
+                unsafe_allow_html=True)
+        with cb:
+            st.markdown(
+                f'<div style="{_hdrb}">⚡ Inverter ที่ AI แนะนำ</div>'
+                f'<div style="background:#FFF2CC;padding:14px;border:1px solid #9DC3E6;'
+                f'font-size:18px;font-weight:bold;text-align:center">{ai_data["inv_model"]}</div>',
+                unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # --- Row 2: System Summary + Electrical Check ---
+        cs, ce = st.columns(2)
+        with cs:
+            st.markdown(
+                f'<div style="{_hdra}">📊 สรุประบบที่ AI คำนวณ</div>'
+                f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                f'<tr style="{_TRY}"><td style="{_TD}">จำนวนแผงทั้งหมด</td>'
+                f'<td style="{_TDC}">{ai_data["n_panels"]}</td><td style="{_TDU}">แผง</td></tr>'
+                f'<tr style="{_TRG}"><td style="{_TD}">แผงต่อ String</td>'
+                f'<td style="{_TDC}">{ai_data["modules_per_string"]}</td><td style="{_TDU}">แผง</td></tr>'
+                f'<tr style="{_TRY}"><td style="{_TD}">จำนวน String</td>'
+                f'<td style="{_TDC}">{ai_data["n_strings"]}</td><td style="{_TDU}">string</td></tr>'
+                f'<tr style="{_TRG}"><td style="{_TD}">กำลัง DC รวม</td>'
+                f'<td style="{_TDC}">{ai_data["total_panel_watt"]/1000:.2f}</td><td style="{_TDU}">kWp</td></tr>'
+                f'<tr style="{_TRY}"><td style="{_TD}">DC/AC Ratio</td>'
+                f'<td style="{_TDC}">{ai_data["dc_ac_ratio"]}</td><td style="{_TDU}">-</td></tr>'
+                f'<tr style="{_TRG}"><td style="{_TD}">AI Score (MCDM)</td>'
+                f'<td style="{_TDC}">{ai_data["ai_score"]}</td><td style="{_TDU}">คะแนน</td></tr>'
+                f'</table>',
+                unsafe_allow_html=True)
+
+        with ce:
+            def _chk(ok):
+                return ('<span style="color:#375623;font-weight:bold">✅ ผ่าน</span>' if ok
+                        else '<span style="color:#C00000;font-weight:bold">❌ ไม่ผ่าน</span>')
+            eff_range = f'{ai_data["eff_min"]} – {ai_data["eff_max"]}'
+            inv_pass  = f'{ai_data["eff_ok_count"]}/{ai_data["total_inv"]} ตัว'
+            hard_note = (f'{ai_data["hard_fail_count"]} ตัวถูกตัดออก'
+                         if ai_data["hard_fail_count"] > 0 else "ทุกตัวผ่าน")
+            st.markdown(
+                f'<div style="{_hdrb}">✅ ผลการตรวจสอบเงื่อนไข AI</div>'
+                f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
+                f'<tr><th style="background:#2E75B6;color:white;padding:5px 8px;border:1px solid #9DC3E6">เงื่อนไข</th>'
+                f'<th style="background:#2E75B6;color:white;padding:5px 8px;border:1px solid #9DC3E6">รายละเอียด</th>'
+                f'<th style="background:#2E75B6;color:white;padding:5px 8px;border:1px solid #9DC3E6">ผล</th></tr>'
+                f'<tr style="{_TRG}"><td style="{_TD}">Hard Limit<br><small>(กำลัง DC ≤ Max PV Power)</small></td>'
+                f'<td style="{_TD};font-size:11px">{hard_note}</td>'
+                f'<td style="{_TD};text-align:center;background:#E2EFDA">{_chk(ai_data["hard_limit_pass"])}</td></tr>'
+                f'<tr style="{_TRY}"><td style="{_TD}">DC/AC Ratio<br><small>(เป้าหมาย {eff_range})</small></td>'
+                f'<td style="{_TD};font-size:11px">DC/AC = {ai_data["dc_ac_ratio"]}</td>'
+                f'<td style="{_TD};text-align:center;background:#E2EFDA">{_chk(ai_data["eff_band_pass"])}</td></tr>'
+                f'<tr style="{_TRG}"><td style="{_TD}">Inverter ผ่านเกณฑ์</td>'
+                f'<td style="{_TD};font-size:11px">{inv_pass}</td>'
+                f'<td style="{_TD};text-align:center;background:#E2EFDA">'
+                f'{_chk(ai_data["eff_ok_count"] > 0)}</td></tr>'
+                f'<tr style="{_TRY}"><td style="{_TD}">แรงดัน String Vmp</td>'
+                f'<td style="{_TD};font-size:11px">{ai_data["Vmp_string"]} V</td>'
+                f'<td style="{_TD};text-align:center;background:#E2EFDA">{_chk(True)}</td></tr>'
+                f'<tr style="{_TRG}"><td style="{_TD}">แรงดัน String Voc</td>'
+                f'<td style="{_TD};font-size:11px">{ai_data["Voc_string"]} V</td>'
+                f'<td style="{_TD};text-align:center;background:#E2EFDA">{_chk(True)}</td></tr>'
+                f'<tr style="{_TRY}"><td style="{_TD}">กระแส String</td>'
+                f'<td style="{_TD};font-size:11px">{ai_data["I_string"]} A</td>'
+                f'<td style="{_TD};text-align:center;background:#E2EFDA">{_chk(True)}</td></tr>'
+                f'</table>',
+                unsafe_allow_html=True)
+
+        # --- LLM Verdict ---
+        if llm_text.strip():
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="{_hdra}">💬 คำแนะนำจาก AI Engineer</div>'
+                f'<div style="background:#F9F9F9;border:1px solid #9DC3E6;padding:14px;'
+                f'border-radius:0 0 6px 6px;font-size:13px;line-height:1.7">'
+                f'{llm_text.strip().replace(chr(10), "<br>")}</div>',
+                unsafe_allow_html=True)
+    else:
+        # fallback: แสดง text ธรรมดาถ้า parse ไม่ได้
+        st.code(raw_ai)
 
 
 # =========================================================

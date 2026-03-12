@@ -465,32 +465,29 @@ def ai_select_from_database(
     # =====================================================
     # STEP 4 — Build deterministic summary
     # =====================================================
-    deterministic_summary = (
-        f"IEEE AI Equipment Recommendation\n"
-        f"--------------------------------\n"
-        f"PV Module : {best_panel[p_cols['Model']]}\n"
-        f"Inverter  : {best_inv[i_cols['Model']]}\n\n"
-        f"Engineering Checks\n"
-        f"------------------\n"
-        f"Total Panel Watt    : {total_panel_watt:,.0f} W\n"
-        f"{hard_limit_status}\n"
-        f"{eff_status}\n\n"
-        f"System Summary\n"
-        f"--------------\n"
-        f"Total panels        : {n_panels}\n"
-        f"Modules per string  : {modules_per_string}\n"
-        f"Number of strings   : {n_strings}\n\n"
-        f"Electrical Check\n"
-        f"----------------\n"
-        f"String Vmp : {Vmp_string:.1f} V\n"
-        f"String Voc : {Voc_string:.1f} V\n"
-        f"String I   : {I_string:.1f} A\n\n"
-        f"DC/AC ratio : {best_ratio:.2f}\n"
-        f"AI score    : {best_inv['ai_score']:.3f}\n\n"
-        f"Config loaded from  : Weights_Config.csv\n"
-        f"Efficiency band     : {eff_min} – {eff_max} (Thailand optimum)\n"
-        f"Inverters passed    : {eff_ok_count}/{total_inv}\n"
-    )
+    # ส่งกลับเป็น dict แทน text เพื่อให้ main.py แสดงผลสวยได้
+    import json as _json
+    ai_dict = {
+        "panel_model":       str(best_panel[p_cols["Model"]]),
+        "inv_model":         str(best_inv[i_cols["Model"]]),
+        "total_panel_watt":  round(total_panel_watt, 0),
+        "n_panels":          int(n_panels),
+        "modules_per_string":int(modules_per_string),
+        "n_strings":         int(n_strings),
+        "Vmp_string":        round(Vmp_string, 1),
+        "Voc_string":        round(Voc_string, 1),
+        "I_string":          round(I_string, 2),
+        "dc_ac_ratio":       round(best_ratio, 2),
+        "ai_score":          round(float(best_inv["ai_score"]), 3),
+        "hard_fail_count":   int(hard_fail_count),
+        "total_inv":         int(total_inv),
+        "eff_ok_count":      int(eff_ok_count),
+        "eff_min":           eff_min,
+        "eff_max":           eff_max,
+        "hard_limit_pass":   hard_fail_count == 0,
+        "eff_band_pass":     bool(best_inv["_eff_ok"]),
+    }
+    deterministic_summary = "AI_RESULT_JSON:" + _json.dumps(ai_dict, ensure_ascii=False)
 
     # =====================================================
     # STEP 5 — LLM Engineering Verdict (OpenAI / Gemini)
@@ -526,12 +523,7 @@ Inverters ผ่านเกณฑ์ : {eff_ok_count}/{total_inv}
         OPENAI_KEY=OPENAI_KEY,
     )
 
-    result = (
-        deterministic_summary
-        + f"\n=== LLM Engineering Verdict ===\n"
-        + llm_verdict
-    )
-
+    result = deterministic_summary + "|||LLM|||" + llm_verdict
     return result
 
 
