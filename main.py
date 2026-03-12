@@ -590,49 +590,41 @@ st.markdown(
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =================================================================
-# ส่วนที่ 5: Metric Cards
+# ส่วนที่ 5: Metric Cards (พร้อมคำอธิบาย IRR/NPV)
 # =================================================================
-m1, m2, m3, m4, m5, m6 = st.columns(6)
-m1.metric("💵 เงินลงทุน (CAPEX)",       f"{CAPEX:,.0f} ฿")
-m2.metric("📅 คืนทุนธรรมดา (Payback)", pb_str)
-m3.metric("📅 คืนทุนคิดลด (Disc. PB)", dpb_str)
-m4.metric("📈 IRR",                      irr_str)
-m5.metric("💹 NPV",                      npv_str)
-m6.metric("🌿 ลด CO₂/ปี",               f"{co2_yr:.2f} t")
-
-# =================================================================
-# ส่วนที่ 6: Financial Detail Table
-# =================================================================
-fin_rows = [
-    (TR_Y, "เงินลงทุนเริ่มต้น (Capital Expenditure: CAPEX)",              f"{CAPEX:,.0f}",          "บาท"),
-    (TR_G, "พลังงานที่ผลิตได้ปีแรก (Year-1 Energy Production)",           f"{e_yr:,.0f}",           "kWh/ปี"),
-    (TR_Y, "อัตราค่าไฟที่ประหยัดได้ (Self-use Electricity Tariff)",       f"{tariff_self:.2f}",     "บาท/kWh"),
-    (TR_G, "สัดส่วนการใช้ไฟเอง (Self-consumption Ratio)",                  f"{self_use_ratio*100:.0f}", "%"),
-    (TR_Y, "ระยะเวลาคืนทุนแบบธรรมดา (Simple Payback Period)",             pb_str,                   "ปี"),
-    (TR_G, "ระยะเวลาคืนทุนแบบคิดลด (Discounted Payback Period)",          dpb_str,                  "ปี"),
-    (TR_Y, "มูลค่าปัจจุบันสุทธิ (Net Present Value: NPV)",                f"{npv:,.0f}",            "บาท"),
-    (TR_G, "อัตราผลตอบแทนภายใน (Internal Rate of Return: IRR)",           irr_str,                  "%"),
-    ("#E2EFDA", "การลดการปล่อย CO₂ ต่อปี (Annual CO₂ Reduction)",         f"{co2_yr:.2f}",          "tCO₂/ปี"),
-    ("#E2EFDA", "การลดการปล่อย CO₂ ตลอด 25 ปี (Lifetime CO₂ Reduction)", f"{co2_25:.1f}",          "tCO₂ (25 ปี)"),
-]
-fin_html = "".join([
-    f'<tr style="background:{r[0]}"><td style="{TD}">{r[1]}</td>'
-    f'<td style="{TDC};color:{"#375623" if "CO" in r[1] else "black"}">{r[2]}</td>'
-    f'<td style="{TDU}">{r[3]}</td></tr>'
-    for r in fin_rows
-])
 note_yr = fin.get("inv_replacement_year", 12)
+
+# Tooltip HTML cards แทน st.metric เพื่อให้ใส่คำอธิบายได้
+def _fin_card(icon, title, value, tooltip="", color="#1F5C8B"):
+    tip_html = (
+        f'<div style="font-size:11px;color:#555;margin-top:4px;border-top:1px solid #ddd;padding-top:4px">'
+        f'ℹ️ {tooltip}</div>'
+    ) if tooltip else ""
+    return (
+        f'<div style="background:white;border:1px solid #9DC3E6;border-radius:8px;'
+        f'padding:14px 16px;text-align:center;height:100%">'
+        f'<div style="font-size:12px;color:#666;margin-bottom:4px">{icon} {title}</div>'
+        f'<div style="font-size:22px;font-weight:bold;color:{color}">{value}</div>'
+        f'{tip_html}</div>'
+    )
+
+c1,c2,c3,c4,c5,c6 = st.columns(6)
+c1.markdown(_fin_card("💵","เงินลงทุน (CAPEX)",      f"{CAPEX:,.0f} ฿"), unsafe_allow_html=True)
+c2.markdown(_fin_card("📅","คืนทุนธรรมดา",           pb_str), unsafe_allow_html=True)
+c3.markdown(_fin_card("📅","คืนทุนคิดลด",            dpb_str), unsafe_allow_html=True)
+c4.markdown(_fin_card("📈","IRR",                     irr_str, color="#375623",
+    tooltip="อัตราผลตอบแทนภายใน — ถ้าสูงกว่าดอกเบี้ยเงินกู้/เงินฝาก แสดงว่าโครงการคุ้มค่า"), unsafe_allow_html=True)
+c5.markdown(_fin_card("💹","NPV",                     npv_str, color="#1F5C8B" if npv and npv>0 else "#C00000",
+    tooltip="มูลค่าปัจจุบันสุทธิ — ถ้าเป็นบวก แสดงว่าโครงการให้ผลตอบแทนดีกว่าการฝากเงิน"), unsafe_allow_html=True)
+c6.markdown(_fin_card("🌿","ลด CO₂/ปี",              f"{co2_yr:.2f} tCO₂", color="#375623",
+    tooltip=f"ตลอด 25 ปี ลดได้ {co2_25:.1f} tCO₂ (ค่าไฟฟ้าไทย = 0.4715 kgCO₂/kWh)"), unsafe_allow_html=True)
+
 st.markdown(
-    f'<div style="{HDR1}">📊 รายละเอียดการวิเคราะห์เศรษฐศาสตร์และสิ่งแวดล้อม</div>'
-    f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
-    f'<tr><th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:left">รายการ</th>'
-    f'<th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">ค่า</th>'
-    f'<th style="background:#2E75B6;color:white;padding:6px 10px;border:1px solid #9DC3E6;text-align:center">หน่วย</th></tr>'
-    f'{fin_html}'
-    f'<tr style="background:#F2F2F2"><td colspan="3" style="{TD};color:#666;font-size:11px">'
-    f'หมายเหตุ: PV Degradation = 0.5%/ปี | O&amp;M = 1.5%/ปี | '
-    f'Inverter Replacement ปีที่ {note_yr} | Grid Emission Factor = 0.4715 kgCO₂/kWh'
-    f'</td></tr></table>',
+    f'<div style="margin-top:8px;padding:6px 12px;background:#F2F2F2;'
+    f'border-radius:6px;font-size:11px;color:#666">'
+    f'📌 สมมติฐาน: อัตราการเสื่อมสภาพแผง 0.5%/ปี | ค่าบำรุงรักษา 1.5%/ปี | '
+    f'เปลี่ยน Inverter ปีที่ {note_yr} | อัตราคิดลด {fin.get("discount_rate",0.05)*100:.0f}% | '
+    f'ค่าการปล่อย CO₂ ของระบบไฟฟ้าไทย 0.4715 kgCO₂/kWh</div>',
     unsafe_allow_html=True)
 
 
