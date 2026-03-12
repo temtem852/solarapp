@@ -346,13 +346,11 @@ with col_inv:
 
 with col_pv:
     rows_pv = [
-        ("กำลังไฟฟ้าสูงสุด (Rated Power, Pm)",         f"{Pm:.0f}",         "W"),
-        ("แรงดัน ณ กำลังสูงสุด (Vmp)",                 f"{Vmp:.2f}",        "V"),
-        ("แรงดันวงจรเปิด (Open Circuit Voltage, Voc)",  f"{Voc:.2f}",        "V"),
-        ("กระแส ณ กำลังสูงสุด (Imp)",                   f"{Imp:.2f}",        "A"),
-        ("กระแสลัดวงจร (Short Circuit Current, Isc)",   f"{Isc:.2f}",        "A"),
-        ("ขนาดระบบที่ออกแบบ (Design PV Capacity)",      f"{P_pv_design:.2f}","kWp"),
-        ("พลังงานที่ผลิตได้ (Estimated Energy/Day)",     f"{E_est_day:.1f}",  "kWh/วัน"),
+        ("กำลังไฟฟ้าสูงสุด (Rated Power, Pm)",        f"{Pm:.0f}",   "W"),
+        ("แรงดัน ณ กำลังสูงสุด (Vmp)",                f"{Vmp:.2f}",  "V"),
+        ("แรงดันวงจรเปิด (Open Circuit Voltage, Voc)", f"{Voc:.2f}",  "V"),
+        ("กระแส ณ กำลังสูงสุด (Imp)",                  f"{Imp:.2f}",  "A"),
+        ("กระแสลัดวงจร (Short Circuit Current, Isc)",  f"{Isc:.2f}",  "A"),
     ]
     rows_html2 = "".join([
         f'<tr style="{TR_Y}"><td style="{TD}">{r[0]}</td>'
@@ -374,12 +372,14 @@ col_sum, col_chk = st.columns([55, 45])
 
 with col_sum:
     sum_rows = [
-        ("จำนวนแผงโซลาร์ใน 1 String (Panels/String)",         str(panels_per_string), "แผง"),
-        ("Vmp รวม String อุณหภูมิสูง (Vmpp,string hot)",       f"{Vmp_str:.1f}",       "V"),
-        ("Voc รวม String อุณหภูมิต่ำ (Voc,string cold)",       f"{Voc_str:.1f}",       "V"),
-        ("กระแสลัดวงจรของ String (Isc_string)",                 f"{I_str:.2f}",         "A"),
-        ("จำนวน String ที่ใช้งาน (Strings Used)",               str(strings_used),      "string"),
-        ("กำลัง DC ติดตั้งรวม (Total DC Installed Capacity)",   f"{dc_capacity:.2f}",   "kWp"),
+        ("จำนวนแผงโซลาร์ใน 1 String (Panels/String)",          str(panels_per_string),  "แผง"),
+        ("Vmp รวม String อุณหภูมิสูง (Vmpp,string hot)",        f"{Vmp_str:.1f}",        "V"),
+        ("Voc รวม String อุณหภูมิต่ำ (Voc,string cold)",        f"{Voc_str:.1f}",        "V"),
+        ("กระแสลัดวงจรของ String (Isc_string)",                  f"{I_str:.2f}",          "A"),
+        ("จำนวน String ที่ใช้งาน (Strings Used)",                str(strings_used),       "string"),
+        ("กำลัง DC ติดตั้งรวม (Total DC Installed Capacity)",    f"{dc_capacity:.2f}",    "kWp"),
+        ("ขนาดระบบที่ออกแบบ (Design PV Capacity)",               f"{P_pv_design:.2f}",    "kWp"),
+        ("พลังงานที่ผลิตได้ต่อวัน (Estimated Energy/Day)",        f"{E_est_day:.1f}",      "kWh/วัน"),
     ]
     s_rows_html = "".join([
         f'<tr style="{TR_Y}"><td style="{TD}">{r[0]}</td>'
