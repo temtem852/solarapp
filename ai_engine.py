@@ -296,45 +296,81 @@ def ai_select_from_database(
             + "  2. Use Inverter with Max Input Current >= " + str(round(min_imp_in_db, 1)) + " A"
         )
 
-    best_panel  = panels_df.sort_values("panel_score", ascending=False).iloc[0]
-    panel_power = float(best_panel[p_cols["Power_W"]])
-    Vmp         = float(best_panel[p_cols["Vmp_V"]])
-    Voc         = float(best_panel[p_cols["Voc_V"]])
-    Imp         = float(best_panel[p_cols["Imp_A"]])
-    Isc_panel   = float(best_panel[p_cols["Imp_A"]]) * 1.05   # estimate Isc ≈ Imp*1.05 ถ้าไม่มี
-
     # =====================================================
-    # STEP 2 — String parameters
-    # ถ้ามี sidebar_string_design → ใช้ค่าจาก sidebar (ออกแบบแล้ว)
-    # ถ้าไม่มี → คำนวณใหม่จาก best_panel
-    # =====================================================
-    if sidebar_string_design and sidebar_Pm:
-        # ใช้ผลการออกแบบจาก sidebar โดยตรง
-        modules_per_string = sidebar_string_design.get("panels_per_string", 8)
-        n_strings          = sidebar_string_design.get("strings_used", 1)
-        n_panels           = modules_per_string * n_strings
-        # คำนวณ electrical ด้วยสเปค best_panel จาก DB
-        Vmp_string       = modules_per_string * Vmp
-        Voc_string       = modules_per_string * Voc
-        I_string         = Isc_panel * SF_CURRENT
-        total_panel_watt = n_panels * panel_power
-    else:
-        # fallback: คำนวณใหม่จาก best_panel
-        n_panels_needed    = max(1, int(dc_capacity * 1000 / panel_power))
-        modules_per_string = max(1, int(600 / Vmp))
-        n_strings          = max(1, int(np.ceil(n_panels_needed / modules_per_string)))
-        n_panels           = modules_per_string * n_strings
-        Vmp_string         = modules_per_string * Vmp
-        Voc_string         = modules_per_string * Voc
-        I_string           = Isc_panel * SF_CURRENT
-        total_panel_watt   = n_panels * panel_power
-
-    # =====================================================
-    # STEP 3 — Inverter evaluation
+    # STEP 1b — เลือก best_panel โดย cross-check กับ inverter DB
+    # เพื่อให้แน่ใจว่ามี inverter ที่ผ่าน Hard Limit ได้จริง
     # =====================================================
     power_col  = i_cols["Power_kW"]
     is_kw_unit = "kw" in power_col.lower()
 
+    def _calc_string_params(panel_row, sd=None, sidebar_Pm_val=None):
+        """คำนวณ string params สำหรับแผงหนึ่งแผง"""
+        pw  = float(panel_row[p_cols["Power_W"]])
+        vmp = float(panel_row[p_cols["Vmp_V"]])
+        voc = float(panel_row[p_cols["Voc_V"]])
+        imp = float(panel_row[p_cols["Imp_A"]])
+        isc = imp * 1.05
+        if sd and sidebar_Pm_val:
+            mps = sd.get("panels_per_string", 8)
+            ns  = sd.get("strings_used", 1)
+        else:
+            n_needed = max(1, int(dc_capacity * 1000 / pw))
+            mps = max(1, int(600 / vmp))
+            ns  = max(1, int(np.ceil(n_needed / mps)))
+        np_ = mps * ns
+        return dict(
+            panel_power=pw, Vmp=vmp, Voc=voc, Imp=imp, Isc_panel=isc,
+            modules_per_string=mps, n_strings=ns, n_panels=np_,
+            Vmp_string=mps*vmp, Voc_string=mps*voc,
+            I_string=isc*SF_CURRENT,
+            total_panel_watt=np_*pw,
+        )
+
+    def _count_inv_pass(total_w):
+        """นับ inverter ที่ผ่าน Hard Limit สำหรับ total_panel_watt หนึ่งค่า"""
+        if not hard_limit_enabled or max_pv_col is None:
+            return len(inverters_df)
+        cnt = 0
+        for _, inv in inverters_df.iterrows():
+            try:
+                if total_w <= float(inv[max_pv_col]):
+                    cnt += 1
+            except Exception:
+                pass
+        return cnt
+
+    # ลอง panel ตามลำดับ score — เลือกตัวที่มี inverter ผ่านมากที่สุด
+    panels_sorted = panels_df.sort_values("panel_score", ascending=False).reset_index(drop=True)
+    best_panel    = None
+    best_sp       = None
+    best_inv_pass = -1
+
+    for _, prow in panels_sorted.iterrows():
+        sp = _calc_string_params(prow, sidebar_string_design, sidebar_Pm)
+        n_pass = _count_inv_pass(sp["total_panel_watt"])
+        # เลือกแผงที่มี inverter ผ่านมากที่สุด (tie-break ด้วย panel_score)
+        if n_pass > best_inv_pass:
+            best_inv_pass = n_pass
+            best_panel    = prow
+            best_sp       = sp
+
+    # unpack
+    panel_power        = best_sp["panel_power"]
+    Vmp                = best_sp["Vmp"]
+    Voc                = best_sp["Voc"]
+    Imp                = best_sp["Imp"]
+    Isc_panel          = best_sp["Isc_panel"]
+    modules_per_string = best_sp["modules_per_string"]
+    n_strings          = best_sp["n_strings"]
+    n_panels           = best_sp["n_panels"]
+    Vmp_string         = best_sp["Vmp_string"]
+    Voc_string         = best_sp["Voc_string"]
+    I_string           = best_sp["I_string"]
+    total_panel_watt   = best_sp["total_panel_watt"]
+
+    # =====================================================
+    # STEP 3 — Inverter evaluation
+    # =====================================================
     inv_scores     = []
     inv_ac_watts   = []
     hard_fail_flags = []
