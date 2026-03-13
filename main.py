@@ -745,10 +745,15 @@ if st.session_state.get("ai_result"):
                         else '<span style="color:#C00000;font-weight:bold">❌ ไม่ผ่าน</span>')
             eff_range = f'{ai_data["eff_min"]} – {ai_data["eff_max"]}'
             inv_pass  = f'{ai_data["eff_ok_count"]}/{ai_data["total_inv"]} ตัว'
-            _hfc = ai_data["hard_fail_count"]
-            _tot = ai_data["total_inv"]
-            hard_note = (f'ตัวที่เลือกผ่าน ({_hfc}/{_tot} ตัวอื่นถูกตัด)'
-                         if _hfc > 0 else "ทุกตัวผ่าน")
+            _hfc  = ai_data["hard_fail_count"]
+            _tot  = ai_data["total_inv"]
+            _pass = ai_data["hard_limit_pass"]
+            if _hfc == 0:
+                hard_note = "ทุกตัวผ่าน"
+            elif _pass:
+                hard_note = f"ตัวที่เลือกผ่าน ({_hfc} ตัวอื่นถูกตัด)"
+            else:
+                hard_note = f"ตัวที่เลือกไม่ผ่าน (กำลัง DC เกิน Max PV Power)"
             st.markdown(
                 f'<div style="{_hdrb}">✅ ผลการตรวจสอบเงื่อนไข AI</div>'
                 f'<table style="width:100%;border-collapse:collapse;font-size:13px">'
