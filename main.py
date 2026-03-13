@@ -465,7 +465,7 @@ st.markdown(
     f'<tr>'
     f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">1</td>'
     f'{mppt_td}'
-    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{d.get("panels_required","-")}</td>'
+    f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{panels_per_string * strings_used}</td>'
     f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{Pm:.0f}</td>'
     f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{inv_ac:.0f}</td>'
     f'<td style="padding:5px 8px;border:1px solid #9DC3E6;background:#F2F2F2">{dc_total_w:.0f}</td>'
@@ -512,7 +512,7 @@ panel_price     = float(st.session_state.get("panel_price_thb", 4500))
 inv_price       = float(st.session_state.get("inv_price_thb",  20000))
 
 # จำนวนแผงและ inverter ที่ต้องใช้จริง
-n_panels_total  = d.get("panels_required", panels_per_string * strings_used)
+n_panels_total  = panels_per_string * strings_used  # แผงที่ติดตั้งจริง ไม่ใช่ค่าประมาณ
 n_inverters     = 1   # 1 inverter per design
 
 # คำนวณต้นทุนแยกรายการ
