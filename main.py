@@ -745,8 +745,10 @@ if st.session_state.get("ai_result"):
                         else '<span style="color:#C00000;font-weight:bold">❌ ไม่ผ่าน</span>')
             eff_range = f'{ai_data["eff_min"]} – {ai_data["eff_max"]}'
             inv_pass  = f'{ai_data["eff_ok_count"]}/{ai_data["total_inv"]} ตัว'
-            hard_note = (f'{ai_data["hard_fail_count"]} ตัวถูกตัดออก'
-                         if ai_data["hard_fail_count"] > 0 else "ทุกตัวผ่าน")
+            _hfc = ai_data["hard_fail_count"]
+            _tot = ai_data["total_inv"]
+            hard_note = (f'ตัวที่เลือกผ่าน ({_hfc}/{_tot} ตัวอื่นถูกตัด)'
+                         if _hfc > 0 else "ทุกตัวผ่าน")
             st.markdown(
                 f'<div style="{_hdrb}">✅ ผลการตรวจสอบเงื่อนไข AI</div>'
                 f'<table style="width:100%;border-collapse:collapse;font-size:13px">'

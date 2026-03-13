@@ -520,7 +520,7 @@ def ai_select_from_database(
         "eff_ok_count":      int(eff_ok_count),
         "eff_min":           eff_min,
         "eff_max":           eff_max,
-        "hard_limit_pass":   hard_fail_count == 0,
+        "hard_limit_pass":   not bool(best_inv.get("_hard_fail", False)),  # ผ่าน = inverter ที่เลือกผ่าน
         "eff_band_pass":     bool(best_inv["_eff_ok"]),
     }
     deterministic_summary = "AI_RESULT_JSON:" + _json.dumps(ai_dict, ensure_ascii=False)
