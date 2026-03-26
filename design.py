@@ -26,7 +26,7 @@ def ss(key, default=0.0):
 
 
 # =========================================================
-# ENGINEERING RANGE WARNINGS
+# ENGINEERING RANGE WARNINGS (non-blocking)
 # =========================================================
 def validate_design_inputs(E_day, H_sun, PR, area):
     """Returns list of warning strings."""
@@ -111,7 +111,14 @@ def calc_string_design(
     _spm_pre      = max(1, int(inv_i // _I_string_pre)) if _I_string_pre > 0 else 1
     _strings_max_pre = _spm_pre * mppt_count
 
-
+    # -------------------------------------------------------
+    # pps Algorithm:
+    # ขั้น 1: หา pps_elec = ขีดจำกัดทางไฟฟ้า (Voc, MPPT)
+    # ขั้น 2: หา strings_req ถ้าใช้ pps_elec
+    # ขั้น 3: ถ้า strings_req <= strings_max → ลด pps ให้พอดีกับโหลด
+    #         ถ้า strings_req > strings_max  → ใช้ strings_max แล้วหา pps
+    # ขั้น 4: DC/AC clamp
+    # -------------------------------------------------------
     _pps_elec    = max(1, min(n_max_voc, n_max_mppt))
     _str_req_at_elec = int(np.ceil(panels_required_est / _pps_elec))
 
@@ -140,10 +147,23 @@ def calc_string_design(
     panels_required = int(np.ceil(P_pv_design * 1000 / Pm))
     strings_required = int(np.ceil(panels_required / panels_per_string))
 
-
+    # ---------------------------------------------------------
+    # IEEE / IEC 62548: แยก 2 ค่ากระแส
+    #   I_op  = Imp  → เทียบ Max Input Current per MPPT (operating)
+    #   I_sc  = Isc × SF_CURRENT → เทียบ Max Short-Circuit Current
+    #
+    # inv_i (sidebar) = Max input current per MPPT
+    # inv_i_sc_max    = Isc limit = inv_i × SF_CURRENT (ถ้าไม่มี field แยก)
+    # ---------------------------------------------------------
     I_op        = Imp                     # operating current (1 string)
     I_sc_string = Isc * SF_CURRENT        # short-circuit current NEC-derated
     inv_i_sc    = inv_i * SF_CURRENT      # inverter Isc limit (estimated)
+
+    # strings/MPPT จาก Imp (operating) ไม่ใช่ Isc
+    # Tolerance 2% — Imp เกิน inv_i ไม่เกิน 2% ถือว่าผ่าน (rounding/datasheet tolerance)
+    IMP_TOLERANCE = 0.02
+    # อยู่ใน tolerance → ใช้ inv_i เป็น cap เพื่อให้ floor division ได้ 1
+    # strings_per_mppt_max ตาม spec 3.4.5: I_string = Isc × 1.25
     strings_per_mppt_max = int(inv_i // I_sc_string) if I_sc_string > 0 else 0
 
     auto_reduced = False
@@ -160,13 +180,30 @@ def calc_string_design(
     strings_max  = strings_per_mppt_max * mppt_count
     strings_used = min(strings_required, strings_max)
 
-    # --- MPPT allocation ---
+    # --- ถ้า strings_used < mppt_count → ลองแบ่งแผงใหม่ให้เต็ม MPPT ---
+    # เช่น 8 แผง 1 string + 2 MPPT → ลองทำ 2 string × 4 แผง
+    if strings_used < mppt_count:
+        _new_pps = panels_per_string // mppt_count
+        if _new_pps >= 1:
+            _new_vmp = _new_pps * Vmp * SF_VMP_HOT
+            _new_voc = _new_pps * Voc * SF_VOC_COLD
+            # ตรวจ electrical ว่าผ่านหรือไม่
+            _vmp_ok = _new_vmp >= v_mppt_min
+            _voc_ok = _new_voc <= inv_v
+            if _vmp_ok and _voc_ok:
+                panels_per_string = _new_pps
+                strings_used      = mppt_count
+                # คำนวณ string params ใหม่
+                I_sc_string = Isc * strings_per_mppt_max  # ยังคง 1 string/MPPT
+                Voc_string  = panels_per_string * Voc * SF_VOC_COLD
+                Vmp_string  = panels_per_string * Vmp * SF_VMP_HOT
+
+    # --- MPPT allocation: แบ่ง string ให้กระจายเท่าๆ กัน ---
     mppt_allocation = []
-    remaining = strings_used
-    for i in range(1, mppt_count + 1):
-        s = min(strings_per_mppt_max, remaining)
-        mppt_allocation.append(s)
-        remaining -= s
+    base   = strings_used // mppt_count       # string ต่อ MPPT ขั้นต่ำ
+    extra  = strings_used % mppt_count        # MPPT แรกๆ ได้ +1
+    for i in range(mppt_count):
+        mppt_allocation.append(base + (1 if i < extra else 0))
 
     # --- Final electrical ---
     dc_capacity = panels_per_string * strings_used * Pm / 1000
