@@ -57,50 +57,53 @@ spreadsheet = connect_spreadsheet()
 
 st.header("Equipment Database ")
 
+# =====================================================
+# ปุ่ม Load Database — โหลดครั้งเดียว เก็บใน session_state
+# sidebar dropdown จะมีตัวเลือกหลังกดปุ่มนี้
+# =====================================================
+if "panels_db"    not in st.session_state: st.session_state["panels_db"]    = pd.DataFrame()
+if "inverters_db" not in st.session_state: st.session_state["inverters_db"] = pd.DataFrame()
+
+_db_loaded = (not st.session_state["panels_db"].empty and
+              not st.session_state["inverters_db"].empty)
+
+_col_btn, _col_status = st.columns([1, 3])
+if _col_btn.button("🚀 Load Database", type="primary", key="btn_load_db"):
+    with st.spinner("กำลังโหลดข้อมูลจาก Google Sheets..."):
+        _load_ok = True
+        for _key, _sheet in [("panels_db","Panels_DB"), ("inverters_db","Inverters_DB")]:
+            try:
+                _df = load_db_by_name(SPREADSHEET_KEY, _sheet)
+                if not _df.empty:
+                    st.session_state[_key] = _df
+                else:
+                    st.warning(f"⚠️ {_sheet} ไม่มีข้อมูล")
+                    _load_ok = False
+            except Exception as e:
+                st.error(f"❌ โหลด {_sheet} ไม่ได้: {e}")
+                _load_ok = False
+    if _load_ok:
+        st.rerun()
+
+if _db_loaded:
+    _col_status.success(
+        f"✅ โหลดแล้ว — แผง {len(st.session_state['panels_db'])} รุ่น | "
+        f"Inverter {len(st.session_state['inverters_db'])} รุ่น"
+    )
+else:
+    _col_status.info("⬅️ กด Load Database เพื่อโหลดข้อมูลและเปิดใช้ dropdown ใน Sidebar")
+
+# แสดงตารางใน tabs
 tabs = {
-    "Solar Panels": "Panels_DB",
-    "Inverters":    "Inverters_DB",
-    "Accessories":  "Accessories",
+    "Solar Panels": "panels_db",
+    "Inverters":    "inverters_db",
 }
-
-# =====================================================
-# โหลด DB ทันทีตอน startup (ไม่รอให้คลิกแท็บ)
-# ซึ่งทำให้ sidebar dropdown มีตัวเลือกตั้งแต่เปิดหน้าเลย
-# =====================================================
-_db_defaults = {
-    "panels_db":     ("Panels_DB",    pd.DataFrame()),
-    "inverters_db":  ("Inverters_DB", pd.DataFrame()),
-}
-for _key, (_sheet, _empty) in _db_defaults.items():
-    if _key not in st.session_state:
-        st.session_state[_key] = _empty
-    # โหลดใหม่ถ้ายังว่าง (รองรับ cold start และ cache miss)
-    if st.session_state[_key].empty:
-        try:
-            _df = load_db_by_name(SPREADSHEET_KEY, _sheet)
-            if not _df.empty:
-                st.session_state[_key] = _df
-        except Exception:
-            pass   # ไม่ error หน้าแรก — แสดงว่าง แล้วโหลดใหม่เมื่อกด refresh
-
-# แสดงตารางใน tabs (เพื่อดูข้อมูล เท่านั้น — ไม่ต้อง reload)
 tab_ui = st.tabs(list(tabs.keys()))
-for ui_tab, sheet_name in zip(tab_ui, tabs.values()):
+for ui_tab, _key in zip(tab_ui, tabs.values()):
     with ui_tab:
-        _map = {"Panels_DB": "panels_db", "Inverters_DB": "inverters_db",
-                "Accessories": "accessories_db"}
-        _df_show = st.session_state.get(_map.get(sheet_name, ""), pd.DataFrame())
+        _df_show = st.session_state.get(_key, pd.DataFrame())
         if _df_show.empty:
-            col_r1, col_r2 = st.columns([3, 1])
-            col_r1.info(f"⏳ {sheet_name} ยังไม่ได้โหลด")
-            if col_r2.button(f"🔄 โหลด {sheet_name}", key=f"reload_{sheet_name}"):
-                try:
-                    _df2 = load_db_by_name(SPREADSHEET_KEY, sheet_name)
-                    if not _df2.empty:
-                        st.session_state[_map[sheet_name]] = _df2
-                        st.rerun()
-                except Exception as e:
-                    st.error(str(e))
+            st.info("ยังไม่มีข้อมูล — กด Load Database")
         else:
             st.dataframe(_df_show, use_container_width=True)
 
