@@ -270,6 +270,9 @@ if d["panels_per_string"] < d["n_min_mppt"]:
     st.error("❌ ไม่สามารถจัด String ให้อยู่ใน MPPT window"); st.stop()
 
 dc_capacity       = d["dc_capacity"]
+# คำนวณ E_est_day และ P_pv_design จากแผงที่ติดตั้งจริง (ไม่ใช่ค่าจากโหลด)
+P_pv_design = dc_capacity                          # kWp จากแผงจริง
+E_est_day   = dc_capacity * H_sun * PR             # kWh/วัน จากแผงจริง
 dc_ac_ratio       = d["dc_ac_ratio"]
 panels_per_string = d["panels_per_string"]
 strings_used      = d["strings_used"]
