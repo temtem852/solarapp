@@ -70,7 +70,6 @@ tabs = {
 _db_defaults = {
     "panels_db":     ("Panels_DB",    pd.DataFrame()),
     "inverters_db":  ("Inverters_DB", pd.DataFrame()),
-    "accessories_db":("Accessories",  pd.DataFrame()),
 }
 for _key, (_sheet, _empty) in _db_defaults.items():
     if _key not in st.session_state:
