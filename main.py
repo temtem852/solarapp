@@ -68,7 +68,7 @@ _db_loaded = (not st.session_state["panels_db"].empty and
               not st.session_state["inverters_db"].empty)
 
 _col_btn, _col_status = st.columns([1, 3])
-if _col_btn.button("🚀 Load Database", type="primary", key="btn_load_db"):
+if _col_btn.button("Load Database", type="primary", key="btn_load_db"):
     with st.spinner("กำลังโหลดข้อมูลจาก Google Sheets..."):
         _load_ok = True
         for _key, _sheet in [("panels_db","Panels_DB"), ("inverters_db","Inverters_DB")]:
