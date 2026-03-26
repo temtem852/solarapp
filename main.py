@@ -63,36 +63,47 @@ tabs = {
     "Accessories":  "Accessories",
 }
 
-if "panels_db"     not in st.session_state:
-    st.session_state["panels_db"]     = pd.DataFrame()
-if "inverters_db"  not in st.session_state:
-    st.session_state["inverters_db"]  = pd.DataFrame()
-if "accessories_db" not in st.session_state:
-    st.session_state["accessories_db"] = pd.DataFrame()
+# =====================================================
+# โหลด DB ทันทีตอน startup (ไม่รอให้คลิกแท็บ)
+# ซึ่งทำให้ sidebar dropdown มีตัวเลือกตั้งแต่เปิดหน้าเลย
+# =====================================================
+_db_defaults = {
+    "panels_db":     ("Panels_DB",    pd.DataFrame()),
+    "inverters_db":  ("Inverters_DB", pd.DataFrame()),
+    "accessories_db":("Accessories",  pd.DataFrame()),
+}
+for _key, (_sheet, _empty) in _db_defaults.items():
+    if _key not in st.session_state:
+        st.session_state[_key] = _empty
+    # โหลดใหม่ถ้ายังว่าง (รองรับ cold start และ cache miss)
+    if st.session_state[_key].empty:
+        try:
+            _df = load_db_by_name(SPREADSHEET_KEY, _sheet)
+            if not _df.empty:
+                st.session_state[_key] = _df
+        except Exception:
+            pass   # ไม่ error หน้าแรก — แสดงว่าง แล้วโหลดใหม่เมื่อกด refresh
 
+# แสดงตารางใน tabs (เพื่อดูข้อมูล เท่านั้น — ไม่ต้อง reload)
 tab_ui = st.tabs(list(tabs.keys()))
-
 for ui_tab, sheet_name in zip(tab_ui, tabs.values()):
     with ui_tab:
-        try:
-            # ใช้ load_db_by_name — cache key = sheet_name string ป้องกัน cross-tab contamination
-            df = load_db_by_name(SPREADSHEET_KEY, sheet_name)
-
-            if df.empty:
-                st.info(f"{sheet_name} ยังไม่มีข้อมูล")
-            else:
-                st.dataframe(df, use_container_width=True)
-
-                if sheet_name == "Panels_DB":
-                    st.session_state["panels_db"] = df
-                elif sheet_name == "Inverters_DB":
-                    st.session_state["inverters_db"] = df
-                elif sheet_name == "Accessories":
-                    st.session_state["accessories_db"] = df
-
-        except Exception as e:
-            st.error(f"❌ ไม่สามารถโหลดแท็บ {sheet_name}")
-            st.caption(str(e))
+        _map = {"Panels_DB": "panels_db", "Inverters_DB": "inverters_db",
+                "Accessories": "accessories_db"}
+        _df_show = st.session_state.get(_map.get(sheet_name, ""), pd.DataFrame())
+        if _df_show.empty:
+            col_r1, col_r2 = st.columns([3, 1])
+            col_r1.info(f"⏳ {sheet_name} ยังไม่ได้โหลด")
+            if col_r2.button(f"🔄 โหลด {sheet_name}", key=f"reload_{sheet_name}"):
+                try:
+                    _df2 = load_db_by_name(SPREADSHEET_KEY, sheet_name)
+                    if not _df2.empty:
+                        st.session_state[_map[sheet_name]] = _df2
+                        st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+        else:
+            st.dataframe(_df_show, use_container_width=True)
 
 
 # =========================================================
