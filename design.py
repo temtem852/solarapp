@@ -172,7 +172,7 @@ def calc_string_design(
         auto_reduced = True
 
     # warning ถ้า Isc string เกิน Isc limit ของ inverter
-    isc_warning = I_sc_string > inv_i_sc
+    isc_warning = I_sc_string > inv_i    # IEC 62548: Isc×1.25 ≤ inv_i_max
 
     # I_string ใช้ Isc*SF สำหรับ display (convention เดิม)
     I_string = I_sc_string

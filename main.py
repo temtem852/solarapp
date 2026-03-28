@@ -311,7 +311,7 @@ if d["string_clamped"]:
 # ตรวจสอบเงื่อนไข
 v_min_val = float(ss("v_mppt_min") or V_MPPT_MIN_DEFAULT)
 voc_ok  = bool(Voc_str and Voc_str <= inv_v)
-isc_ok  = bool(I_str   and I_str   <= inv_i * 1.25)
+isc_ok  = bool(I_str   and I_str   <= inv_i)   # IEC: Isc×1.25 ≤ inv_i → I_str=Isc×1.25 ≤ inv_i
 vmpp_ok = bool(Vmp_str and Vmp_str >= v_min_val)
 pps_ok  = bool(panels_per_string >= d["n_min_mppt"])
 str_ok  = bool(strings_used <= d.get("strings_max", 999))
@@ -418,8 +418,8 @@ with col_chk:
          f"{Vmp_str:.1f}", "V", f"≥ {v_min_val:.0f} V", vmpp_ok),
         ("แรงดัน Voc รวม String (เย็น) ≤ แรงดันสูงสุด Inverter",
          f"{Voc_str:.1f}", "V", f"≤ {inv_v:.0f} V", voc_ok),
-        ("กระแสลัดวงจร String ≤ กระแส Inverter × 1.25",
-         f"{I_str:.2f}", "A", f"≤ {inv_i*1.25:.2f} A", isc_ok),
+        ("กระแสลัดวงจร String (Isc×1.25) ≤ กระแส Inverter สูงสุด",
+         f"{I_str:.2f}", "A", f"≤ {inv_i:.2f} A", isc_ok),
         ("จำนวน String ≤ จำนวน String สูงสุดของ Inverter",
          f"{strings_used}", "string", f"≤ {d.get('strings_max','-')}", str_ok),
         ("กำลัง DC รวม ≤ กำลัง PV สูงสุดที่ Inverter รับได้",
