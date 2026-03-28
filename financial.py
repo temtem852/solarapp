@@ -15,13 +15,32 @@ from config import (
 # IRR (Newton-Raphson)
 # =========================================================
 def irr(cashflows, guess=0.1):
+    """Newton-Raphson IRR — returns None ถ้าไม่ converge หรือค่าผิดปกติ"""
+    # Guard: ถ้า cashflow บวกทั้งหมด หรือลบทั้งหมด → ไม่มี IRR
+    pos = any(cf > 0 for cf in cashflows[1:])
+    neg = any(cf < 0 for cf in cashflows[:1])
+    if not pos or not neg:
+        return None
+
     r = guess
-    for _ in range(100):
-        f  = sum(cf / ((1 + r) ** i) for i, cf in enumerate(cashflows))
-        df = sum(-i * cf / ((1 + r) ** (i + 1)) for i, cf in enumerate(cashflows))
-        if abs(df) < 1e-9:
+    for _ in range(200):
+        try:
+            f  = sum(cf / ((1 + r) ** i) for i, cf in enumerate(cashflows))
+            df = sum(-i * cf / ((1 + r) ** (i + 1)) for i, cf in enumerate(cashflows))
+        except (OverflowError, ZeroDivisionError):
+            return None
+        if abs(df) < 1e-12:
             break
-        r -= f / df
+        step = f / df
+        r -= step
+        if r <= -1:          # r ไม่สามารถน้อยกว่า -100%
+            r = -0.9999
+        if abs(step) < 1e-8: # converged
+            break
+
+    # ตรวจผลลัพธ์สมเหตุสมผล: -100% ถึง +500%
+    if r is None or not (-1.0 < r < 5.0):
+        return None
     return r
 
 
@@ -62,8 +81,9 @@ def calc_financials(
             + E_y * (1 - self_use_ratio) * tariff_export
         )
 
-        # O&M
-        om_cost = CAPEX * om_ratio
+        # O&M — คิดเป็น % ของรายรับ ไม่ใช่ % ของ CAPEX (เหมาะกว่าสำหรับระบบเล็ก)
+        # om_ratio ใช้เป็น % ของ CAPEX → ยังคงเดิม แต่ต้องไม่เกินรายรับ
+        om_cost = min(CAPEX * om_ratio, revenue * 0.5)
 
         # Inverter replacement
         replacement = inv_replacement_cost if y == inv_replacement_year else 0
@@ -71,27 +91,45 @@ def calc_financials(
         net_cf = revenue - om_cost - replacement
         cashflows.append(net_cf)
 
-        # Simple payback
+        # Simple payback — interpolate เศษปี (ไม่รวม replacement ใน cumulative)
         if simple_payback is None:
-            if sum(cashflows[1:]) >= CAPEX:
-                simple_payback = y
+            cum = sum(cashflows[1:])
+            if cum >= CAPEX:
+                prev_cum = cum - net_cf
+                if net_cf > 0:
+                    frac = max(0.0, min(1.0, (CAPEX - prev_cum) / net_cf))
+                    simple_payback = (y - 1) + frac
+                else:
+                    simple_payback = float(y)
 
-        # Discounted payback
+        # Discounted payback — interpolate เศษปี
         discounted_cf = net_cf / ((1 + discount_rate) ** y)
+        prev_disc_cum = discounted_cum
         discounted_cum += discounted_cf
         if discounted_payback is None and discounted_cum >= 0:
-            discounted_payback = y
+            if discounted_cf > 0:
+                frac = max(0.0, min(1.0, -prev_disc_cum / discounted_cf))
+                discounted_payback = (y - 1) + frac
+            else:
+                discounted_payback = float(y)
 
     npv     = sum(cf / ((1 + discount_rate) ** i) for i, cf in enumerate(cashflows))
     irr_val = irr(cashflows)
 
+    # ถ้าไม่คืนทุนภายใน project_life → ให้ค่าเป็น project_life+  (ไม่ใช่ None)
+    if simple_payback is None:
+        simple_payback = float(project_life + 1)
+    if discounted_payback is None:
+        discounted_payback = float(project_life + 1)
+
     return {
-        "E_year_1":           E_year_1,
-        "cashflows":          cashflows,
-        "simple_payback":     simple_payback,
-        "discounted_payback": discounted_payback,
-        "npv":                npv,
-        "irr_val":            irr_val,
-        "discount_rate":      discount_rate,
+        "E_year_1":             E_year_1,
+        "cashflows":            cashflows,
+        "simple_payback":       simple_payback,
+        "discounted_payback":   discounted_payback,
+        "npv":                  npv,
+        "irr_val":              irr_val,
+        "discount_rate":        discount_rate,
         "inv_replacement_year": inv_replacement_year,
+        "project_life":         project_life,
     }

@@ -68,7 +68,7 @@ _db_loaded = (not st.session_state["panels_db"].empty and
               not st.session_state["inverters_db"].empty)
 
 _col_btn, _col_status = st.columns([1, 3])
-if _col_btn.button("Load Database", type="primary", key="btn_load_db"):
+if _col_btn.button("🚀 Load Database", type="primary", key="btn_load_db"):
     with st.spinner("กำลังโหลดข้อมูลจาก Google Sheets..."):
         _load_ok = True
         for _key, _sheet in [("panels_db","Panels_DB"), ("inverters_db","Inverters_DB")]:
@@ -542,8 +542,13 @@ if E_est_day <= 0 or CAPEX <= 0:
     st.warning("⚠️ Financial calculation not possible"); st.stop()
 
 fin = calc_financials(
-    E_est_day=E_est_day, CAPEX=CAPEX, project_life=project_life,
-    tariff_self=tariff_self, tariff_export=tariff_export, self_use_ratio=self_use_ratio,
+    E_est_day=E_est_day,
+    CAPEX=CAPEX,
+    project_life=project_life,
+    tariff_self=tariff_self,
+    tariff_export=tariff_export,
+    self_use_ratio=self_use_ratio,
+    inv_replacement_cost=inv_price,   # ใช้ราคา inverter จาก DB ไม่ใช่ hardcode
 )
 simple_payback     = fin["simple_payback"]
 discounted_payback = fin["discounted_payback"]
@@ -553,10 +558,11 @@ irr_val            = fin["irr_val"]
 e_yr    = fin.get("E_year_1", E_est_day * 365)
 co2_yr  = e_yr * 0.4715 / 1000
 co2_25  = co2_yr * 25
-pb_str  = f"{simple_payback:.1f} ปี"     if simple_payback     else f">{project_life} ปี"
-dpb_str = f"{discounted_payback:.1f} ปี" if discounted_payback else f">{project_life} ปี"
-irr_str = f"{irr_val*100:.1f}%"          if irr_val is not None else "-"
-npv_str = f"{npv:,.0f} ฿"               if npv is not None    else "-"
+_over = project_life + 1
+pb_str  = f">{project_life} ปี" if simple_payback     >= _over else f"{simple_payback:.1f} ปี"
+dpb_str = f">{project_life} ปี" if discounted_payback >= _over else f"{discounted_payback:.1f} ปี"
+irr_str = f"{irr_val*100:.1f}%"  if (irr_val is not None and irr_val > -1) else "N/A"
+npv_str = f"{npv:,.0f} ฿"        if npv is not None    else "-"
 
 # =================================================================
 # ส่วนที่ 5: ตารางต้นทุนรวม (CAPEX Breakdown)

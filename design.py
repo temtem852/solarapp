@@ -172,9 +172,7 @@ def calc_string_design(
         auto_reduced = True
 
     # warning ถ้า Isc string เกิน Isc limit ของ inverter
-    isc_warning = I_sc_string > inv_i    # IEC 62548: Isc×1.25 ≤ inv_i_max
-
-    # I_string ใช้ Isc*SF สำหรับ display (convention เดิม)
+    # I_string ใช้ Isc*SF สำหรับ display
     I_string = I_sc_string
 
     strings_max  = strings_per_mppt_max * mppt_count
@@ -193,10 +191,13 @@ def calc_string_design(
             if _vmp_ok and _voc_ok:
                 panels_per_string = _new_pps
                 strings_used      = mppt_count
-                # คำนวณ string params ใหม่
-                I_sc_string = Isc * strings_per_mppt_max  # ยังคง 1 string/MPPT
+                # คำนวณ string params ใหม่ (1 string/MPPT)
+                I_sc_string = Isc * SF_CURRENT            # Isc×1.25 ต่อ string
+                I_string    = I_sc_string                 # update display value
                 Voc_string  = panels_per_string * Voc * SF_VOC_COLD
                 Vmp_string  = panels_per_string * Vmp * SF_VMP_HOT
+
+    isc_warning = I_sc_string > inv_i    # IEC 62548: Isc×1.25 ≤ inv_i_max
 
     # --- MPPT allocation: แบ่ง string ให้กระจายเท่าๆ กัน ---
     mppt_allocation = []
